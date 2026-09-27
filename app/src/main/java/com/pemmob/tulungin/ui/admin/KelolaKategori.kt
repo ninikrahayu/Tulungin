@@ -48,6 +48,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
+import com.pemmob.tulungin.ui.theme.TulunginDeleteText
+import com.pemmob.tulungin.ui.theme.TulunginInactiveStep
+import com.pemmob.tulungin.ui.theme.TulunginInputBorder
+import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
+import com.pemmob.tulungin.ui.theme.TulunginMintBorder
+import com.pemmob.tulungin.ui.theme.TulunginMintLight
+import com.pemmob.tulungin.ui.theme.TulunginPrimary
+import com.pemmob.tulungin.ui.theme.TulunginTextMuted
+import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
+import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
 import com.pemmob.tulungin.ui.theme.TulunginTheme
 import kotlinx.coroutines.launch
 
@@ -107,14 +117,14 @@ fun KelolaKategori(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_arrow_back),
                         contentDescription = "Kembali",
-                        tint = Color(0xFF0F1E24),
+                        tint = TulunginTextPrimary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "Kelola Kategori",
-                    color = Color(0xFF0F1E24),
+                    color = TulunginTextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -125,7 +135,7 @@ fun KelolaKategori(
             // Subtitle: Kategori Bantuan
             Text(
                 text = "Kategori Bantuan",
-                color = Color(0xFF0F1E24),
+                color = TulunginTextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
@@ -167,7 +177,7 @@ fun KelolaKategori(
                     .height(52.dp),
                 shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0F282F),
+                    containerColor = TulunginPrimary,
                     contentColor = Color.White
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
@@ -193,7 +203,7 @@ fun KelolaKategori(
                         modifier = Modifier
                             .padding(top = 14.dp, bottom = 8.dp)
                             .size(width = 40.dp, height = 4.dp)
-                            .background(Color(0xFFCBD5E1), CircleShape)
+                            .background(TulunginInactiveStep, CircleShape)
                     )
                 }
             ) {
@@ -237,7 +247,7 @@ fun KelolaKategori(
                         modifier = Modifier
                             .padding(top = 14.dp, bottom = 8.dp)
                             .size(width = 40.dp, height = 4.dp)
-                            .background(Color(0xFFCBD5E1), CircleShape)
+                            .background(TulunginInactiveStep, CircleShape)
                     )
                 }
             ) {
@@ -287,7 +297,7 @@ fun EditCategorySheetContent(
     ) {
         Text(
             text = title,
-            color = Color(0xFF0F1E24),
+            color = TulunginTextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
@@ -298,7 +308,7 @@ fun EditCategorySheetContent(
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Nama Kategori",
-                color = Color(0xFF7D8C90),
+                color = TulunginTextMuted,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -309,13 +319,13 @@ fun EditCategorySheetContent(
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFD6DFDF),
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    focusedBorderColor = TulunginInputBorderFocused,
+                    unfocusedBorderColor = TulunginInputBorder,
                     focusedContainerColor = Color.White,
                     unfocusedContainerColor = Color.White,
-                    focusedTextColor = Color(0xFF0F1E24),
-                    unfocusedTextColor = Color(0xFF0F1E24),
-                    cursorColor = Color(0xFF0F282F)
+                    focusedTextColor = TulunginTextPrimary,
+                    unfocusedTextColor = TulunginTextPrimary,
+                    cursorColor = TulunginPrimary
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -331,7 +341,7 @@ fun EditCategorySheetContent(
                 .height(52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF0F282F),
+                containerColor = TulunginPrimary,
                 contentColor = Color.White
             ),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
@@ -353,7 +363,7 @@ fun EditCategorySheetContent(
             ) {
                 Text(
                     text = "Hapus Kategori",
-                    color = Color(0xFFE53E3E),
+                    color = TulunginDeleteText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -375,7 +385,7 @@ private fun CategoryCardItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(Color.White)
-            .border(1.2.dp, Color(0xFFDCF4F4), RoundedCornerShape(18.dp))
+            .border(1.2.dp, TulunginMintBorder, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -384,13 +394,13 @@ private fun CategoryCardItem(
         Box(
             modifier = Modifier
                 .size(46.dp)
-                .background(Color(0xFFD2F2F2), RoundedCornerShape(12.dp)),
+                .background(TulunginMintLight, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = painterResource(id = item.iconRes),
                 contentDescription = null,
-                tint = Color(0xFF0F282F),
+                tint = TulunginPrimary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -400,7 +410,7 @@ private fun CategoryCardItem(
         // Category Name
         Text(
             text = item.name,
-            color = Color(0xFF0F1E24),
+            color = TulunginTextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
@@ -410,7 +420,7 @@ private fun CategoryCardItem(
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
             contentDescription = null,
-            tint = Color(0xFF7A898E),
+            tint = TulunginTextSecondary,
             modifier = Modifier.size(20.dp)
         )
     }

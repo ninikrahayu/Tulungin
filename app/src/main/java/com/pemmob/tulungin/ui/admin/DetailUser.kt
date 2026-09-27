@@ -36,7 +36,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
+import com.pemmob.tulungin.ui.theme.TulunginBorderGrey
+import com.pemmob.tulungin.ui.theme.TulunginDangerBorder
+import com.pemmob.tulungin.ui.theme.TulunginDeactivateBg
+import com.pemmob.tulungin.ui.theme.TulunginDeactivateText
+import com.pemmob.tulungin.ui.theme.TulunginMintBorder
+import com.pemmob.tulungin.ui.theme.TulunginPrimary
+import com.pemmob.tulungin.ui.theme.TulunginSuccessContainer
+import com.pemmob.tulungin.ui.theme.TulunginSuccessContent
+import com.pemmob.tulungin.ui.theme.TulunginSuccessDot
+import com.pemmob.tulungin.ui.theme.TulunginTextMuted
+import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
 import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.TulunginWarningContainer
+import com.pemmob.tulungin.ui.theme.TulunginWarningContent
+import com.pemmob.tulungin.ui.theme.TulunginWarningDot
 
 @Composable
 fun DetailUser(
@@ -73,14 +87,14 @@ fun DetailUser(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_back),
                     contentDescription = "Kembali",
-                    tint = Color(0xFF0F1E24),
+                    tint = TulunginTextPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = "Detail User/Akun",
-                color = Color(0xFF0F1E24),
+                color = TulunginTextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -96,7 +110,7 @@ fun DetailUser(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Color(0xFF0F282F), RoundedCornerShape(18.dp)),
+                    .background(TulunginPrimary, RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -111,7 +125,7 @@ fun DetailUser(
 
             Text(
                 text = name,
-                color = Color(0xFF0F1E24),
+                color = TulunginTextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -122,7 +136,7 @@ fun DetailUser(
             Row(
                 modifier = Modifier
                     .background(
-                        if (isVerified) Color(0xFFD5F5E3) else Color(0xFFFDE8CD),
+                        if (isVerified) TulunginSuccessContainer else TulunginWarningContainer,
                         RoundedCornerShape(12.dp)
                     )
                     .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -132,14 +146,14 @@ fun DetailUser(
                     modifier = Modifier
                         .size(6.dp)
                         .background(
-                            if (isVerified) Color(0xFF28A745) else Color(0xFFEA580C),
+                            if (isVerified) TulunginSuccessDot else TulunginWarningDot,
                             CircleShape
                         )
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (isVerified) "Terverifikasi" else "Belum Diverifikasi",
-                    color = if (isVerified) Color(0xFF1E7E34) else Color(0xFFB45309),
+                    color = if (isVerified) TulunginSuccessContent else TulunginWarningContent,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -151,7 +165,7 @@ fun DetailUser(
         // Section Title: Informasi Akun
         Text(
             text = "Informasi Akun",
-            color = Color(0xFF0F1E24),
+            color = TulunginTextPrimary,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.fillMaxWidth()
@@ -165,7 +179,7 @@ fun DetailUser(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.White)
-                .border(1.2.dp, Color(0xFFDCF4F4), RoundedCornerShape(20.dp))
+                .border(1.2.dp, TulunginMintBorder, RoundedCornerShape(20.dp))
                 .padding(18.dp)
         ) {
             // 1. Nama Lengkap
@@ -177,7 +191,7 @@ fun DetailUser(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 12.dp),
                 thickness = 1.dp,
-                color = Color(0xFFE2E6E8)
+                color = TulunginBorderGrey
             )
 
             // 2. Email
@@ -189,7 +203,7 @@ fun DetailUser(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 12.dp),
                 thickness = 1.dp,
-                color = Color(0xFFE2E6E8)
+                color = TulunginBorderGrey
             )
 
             // 3. Nomor HP
@@ -201,7 +215,7 @@ fun DetailUser(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 12.dp),
                 thickness = 1.dp,
-                color = Color(0xFFE2E6E8)
+                color = TulunginBorderGrey
             )
 
             // 4. Alamat
@@ -213,14 +227,14 @@ fun DetailUser(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 12.dp),
                 thickness = 1.dp,
-                color = Color(0xFFE2E6E8)
+                color = TulunginBorderGrey
             )
 
             // 5. Status Akun
             Column {
                 Text(
                     text = "Status Akun",
-                    color = Color(0xFF7D8C90),
+                    color = TulunginTextMuted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -232,14 +246,14 @@ fun DetailUser(
                         modifier = Modifier
                             .size(6.dp)
                             .background(
-                                if (isVerified) Color(0xFF28A745) else Color(0xFFEA580C),
+                                if (isVerified) TulunginSuccessDot else TulunginWarningDot,
                                 CircleShape
                             )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (isVerified) "Terverifikasi" else "Belum Diverifikasi",
-                        color = if (isVerified) Color(0xFF1E7E34) else Color(0xFFB45309),
+                        color = if (isVerified) TulunginSuccessContent else TulunginWarningContent,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -256,10 +270,10 @@ fun DetailUser(
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.2.dp, Color(0xFFCF5F5F)),
+            border = BorderStroke(1.2.dp, TulunginDangerBorder),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF6E2E2),
-                contentColor = Color(0xFF64292A)
+                containerColor = TulunginDeactivateBg,
+                contentColor = TulunginDeactivateText
             ),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
@@ -270,13 +284,13 @@ fun DetailUser(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_block),
                     contentDescription = null,
-                    tint = Color(0xFF64292A),
+                    tint = TulunginDeactivateText,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Nonaktifkan Akun",
-                    color = Color(0xFF64292A),
+                    color = TulunginDeactivateText,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -295,14 +309,14 @@ private fun InfoFieldItem(
     Column {
         Text(
             text = label,
-            color = Color(0xFF7D8C90),
+            color = TulunginTextMuted,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            color = Color(0xFF0F1E24),
+            color = TulunginTextPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             lineHeight = 20.sp

@@ -16,7 +16,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.pemmob.tulungin.ui.admin.AdminDashboardScreen
+import com.pemmob.tulungin.ui.admin.ChatScreen
+import com.pemmob.tulungin.ui.admin.DetailJob
 import com.pemmob.tulungin.ui.admin.DetailUser
+import com.pemmob.tulungin.ui.admin.JobItem
+import com.pemmob.tulungin.ui.admin.KelolaJob
 import com.pemmob.tulungin.ui.admin.KelolaKategori
 import com.pemmob.tulungin.ui.admin.KelolaUser
 import com.pemmob.tulungin.ui.admin.UserItem
@@ -39,6 +43,12 @@ class MainActivity : ComponentActivity() {
                 var selectedUser by remember {
                     mutableStateOf(
                         UserItem(1, "Andi Pratama", "081234567890", true)
+                    )
+                }
+
+                var selectedJob by remember {
+                    mutableStateOf(
+                        JobItem(1, "Bantu Pindahan Kos", "Jasa Rumah", "Andi Pratama", "Sedang dikerjakan")
                     )
                 }
 
@@ -73,7 +83,9 @@ class MainActivity : ComponentActivity() {
                     "admin" -> {
                         AdminDashboardScreen(
                             onManageUsersClick = { navigateTo("kelola_user") },
-                            onManageCategoriesClick = { navigateTo("kelola_kategori") }
+                            onManageCategoriesClick = { navigateTo("kelola_kategori") },
+                            onManageJobsClick = { navigateTo("kelola_job") },
+                            onChatClick = { navigateTo("chat") }
                         )
                     }
                     "kelola_user" -> {
@@ -95,6 +107,29 @@ class MainActivity : ComponentActivity() {
                     }
                     "kelola_kategori" -> {
                         KelolaKategori(
+                            onBackClick = { navigateBack() }
+                        )
+                    }
+                    "kelola_job" -> {
+                        KelolaJob(
+                            onBackClick = { navigateBack() },
+                            onJobClick = { job ->
+                                selectedJob = job
+                                navigateTo("detail_job")
+                            }
+                        )
+                    }
+                    "detail_job" -> {
+                        DetailJob(
+                            jobTitle = selectedJob.title,
+                            statusText = selectedJob.status,
+                            category = selectedJob.category,
+                            requester = selectedJob.requester,
+                            onBackClick = { navigateBack() }
+                        )
+                    }
+                    "chat" -> {
+                        ChatScreen(
                             onBackClick = { navigateBack() }
                         )
                     }

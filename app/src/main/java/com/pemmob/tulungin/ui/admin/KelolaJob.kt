@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,60 +40,69 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
+import com.pemmob.tulungin.ui.theme.TulunginDivider
 import com.pemmob.tulungin.ui.theme.TulunginInputBg
 import com.pemmob.tulungin.ui.theme.TulunginInputBorder
 import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
 import com.pemmob.tulungin.ui.theme.TulunginMintBorder
 import com.pemmob.tulungin.ui.theme.TulunginPlaceholder
 import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginSuccessContainer
-import com.pemmob.tulungin.ui.theme.TulunginSuccessContent
-import com.pemmob.tulungin.ui.theme.TulunginSuccessDot
 import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
 import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
 import com.pemmob.tulungin.ui.theme.TulunginTheme
-import com.pemmob.tulungin.ui.theme.TulunginWarningContainer
-import com.pemmob.tulungin.ui.theme.TulunginWarningContent
-import com.pemmob.tulungin.ui.theme.TulunginWarningDot
 
-data class UserItem(
+data class JobItem(
     val id: Int,
-    val name: String,
-    val phone: String,
-    val isVerified: Boolean
+    val title: String,
+    val category: String,
+    val requester: String,
+    val status: String
 )
 
 @Composable
-fun KelolaUser(
+fun KelolaJob(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onUserClick: (UserItem) -> Unit = {}
+    onJobClick: (JobItem) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    // Mock data pengguna (LazyColumn akan memuat hanya item yang berada di viewport layar saat scroll)
-    val userList = remember {
+    val jobList = remember {
         listOf(
-            UserItem(id = 1, name = "Andi Pratama", phone = "081234567890", isVerified = true),
-            UserItem(id = 2, name = "Siti Rahma", phone = "08987654321", isVerified = false),
-            UserItem(id = 3, name = "Budi Santoso", phone = "08102938475", isVerified = true),
-            UserItem(id = 4, name = "Rina Putri", phone = "082345678901", isVerified = false),
-            UserItem(id = 5, name = "Dimas Setiawan", phone = "082468013579", isVerified = true),
-            UserItem(id = 6, name = "Ahmad Fauzi", phone = "081398765432", isVerified = true),
-            UserItem(id = 7, name = "Dewi Lestari", phone = "085612345678", isVerified = false),
-            UserItem(id = 8, name = "Eko Prasetyo", phone = "087788990011", isVerified = true),
-            UserItem(id = 9, name = "Fitri Handayani", phone = "081911223344", isVerified = false),
-            UserItem(id = 10, name = "Gilang Ramadhan", phone = "082155667788", isVerified = true),
-            UserItem(id = 11, name = "Hendra Wijaya", phone = "083899001122", isVerified = true),
-            UserItem(id = 12, name = "Indah Permata", phone = "085233445566", isVerified = false)
+            JobItem(
+                id = 1,
+                title = "Bantu Pindahan Kos",
+                category = "Jasa Rumah",
+                requester = "Andi Pratama",
+                status = "Aktif"
+            ),
+            JobItem(
+                id = 2,
+                title = "Antar Dokumen",
+                category = "Pengantaran",
+                requester = "Budi Santoso",
+                status = "Selesai"
+            ),
+            JobItem(
+                id = 3,
+                title = "Bersihkan Halaman",
+                category = "Kebersihan",
+                requester = "Siti Rahma",
+                status = "Dalam Proses"
+            )
         )
     }
 
-    val filteredUsers = remember(searchQuery) {
-        if (searchQuery.isBlank()) userList
-        else userList.filter {
-            it.name.contains(searchQuery, ignoreCase = true) ||
-            it.phone.contains(searchQuery)
+    val filteredJobs = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            jobList
+        } else {
+            jobList.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.category.contains(searchQuery, ignoreCase = true) ||
+                it.requester.contains(searchQuery, ignoreCase = true) ||
+                it.status.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -123,35 +132,34 @@ fun KelolaUser(
             }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Kelola User/Akun",
+                text = "Kelola Job",
                 color = TulunginTextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
+        // Faint horizontal divider under Top Header
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp,
+            color = TulunginDivider
+        )
+
         // Search Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 6.dp)
+                .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 4.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = {
                     Text(
-                        text = "Cari pengguna...",
+                        text = "Cari job...",
                         color = TulunginPlaceholder,
                         fontSize = 14.sp
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_search),
-                        contentDescription = "Search",
-                        tint = TulunginTextSecondary,
-                        modifier = Modifier.size(18.dp)
                     )
                 },
                 singleLine = true,
@@ -169,21 +177,30 @@ fun KelolaUser(
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        // Section Title: "Daftar Job"
+        Text(
+            text = "Daftar Job",
+            color = TulunginTextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp)
+        )
 
-        // User List (LazyColumn hanya memuat item yang tampil di viewport layar)
+        // Job List (LazyColumn)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(
-                items = filteredUsers,
-                key = { user -> user.id }
-            ) { user ->
-                UserCardItem(
-                    user = user,
-                    onClick = { onUserClick(user) }
+                items = filteredJobs,
+                key = { job -> job.id }
+            ) { job ->
+                JobCardItem(
+                    job = job,
+                    onClick = { onJobClick(job) }
                 )
             }
         }
@@ -191,102 +208,66 @@ fun KelolaUser(
 }
 
 @Composable
-private fun UserCardItem(
-    user: UserItem,
+private fun JobCardItem(
+    job: JobItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .border(1.2.dp, TulunginMintBorder, RoundedCornerShape(18.dp))
+            .border(1.2.dp, TulunginMintBorder, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar Box
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .background(TulunginPrimary, RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_person),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        // Middle Details
+        // Job Details Column
         Column(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = user.name,
+                text = job.title,
                 color = TulunginTextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
-                text = user.phone,
+                text = job.category,
                 color = TulunginTextSecondary,
                 fontSize = 13.sp
             )
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Status Badge
-            StatusBadge(isVerified = user.isVerified)
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = "Peminta: ${job.requester}",
+                color = TulunginTextSecondary,
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = "Status: ${job.status}",
+                color = TulunginPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
 
-        // Right Chevron
+        // Chevron Right Icon
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
             contentDescription = null,
-            tint = TulunginTextSecondary,
+            tint = TulunginPrimary,
             modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-@Composable
-private fun StatusBadge(isVerified: Boolean) {
-    val bgColor = if (isVerified) TulunginSuccessContainer else TulunginWarningContainer
-    val contentColor = if (isVerified) TulunginSuccessContent else TulunginWarningContent
-    val dotColor = if (isVerified) TulunginSuccessDot else TulunginWarningDot
-    val text = if (isVerified) "Terverifikasi" else "Belum Diverifikasi"
-
-    Row(
-        modifier = Modifier
-            .background(bgColor, RoundedCornerShape(10.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .background(dotColor, CircleShape)
-        )
-        Spacer(modifier = Modifier.width(5.dp))
-        Text(
-            text = text,
-            color = contentColor,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
         )
     }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun KelolaUserPreview() {
+fun KelolaJobPreview() {
     TulunginTheme {
-        KelolaUser()
+        KelolaJob()
     }
 }
