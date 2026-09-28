@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "523578674789",
+    "project_id": "tulungin-9ace2",
+    "storage_bucket": "tulungin-9ace2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:523578674789:android:20b811372be80e19ca408c",
+        "android_client_info": {
+          "package_name": "com.pemmob.tulungin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "523578674789-hu8cvrqkdb6pjt5r3rm4sa5qsstmb0qc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pemmob.tulungin",
+            "certificate_hash": "3645df24c72ee5f944dbbd7eaf95112c6696c664"
+          }
+        },
+        {
+          "client_id": "523578674789-49te1qbf9p356kl51fsp5j3e20j7epjd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTfKjOTvjVGJ62rW_07d5VjouVDyerc0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "523578674789-49te1qbf9p356kl51fsp5j3e20j7epjd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
