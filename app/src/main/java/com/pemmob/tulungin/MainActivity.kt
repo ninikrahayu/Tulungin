@@ -1,6 +1,11 @@
 package com.pemmob.tulungin
 
 import android.os.Bundle
+import android.widget.Toast
+import androidx.lifecycle.ViewModelProvider
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.pemmob.tulungin.ui.user.UserApp
+import com.pemmob.tulungin.ui.user.UserViewModel
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,18 +32,26 @@ import com.pemmob.tulungin.ui.admin.UserItem
 import com.pemmob.tulungin.ui.auth.LoginScreen
 import com.pemmob.tulungin.ui.auth.RegisterScreen
 import androidx.activity.compose.BackHandler
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import com.pemmob.tulungin.ui.theme.TulunginTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val userViewModel = ViewModelProvider(this)[UserViewModel::class.java]
         setContent {
             TulunginTheme {
-                // Stack riwayat halaman untuk navigasi tombol kembali sistem HP
-                val backStack = remember { mutableStateListOf("login") }
+                var backStack by rememberSaveable { mutableStateOf(listOf("login")) }
                 val currentScreen = backStack.lastOrNull() ?: "login"
+                val authMessage by userViewModel.message.collectAsState()
+                LaunchedEffect(authMessage, currentScreen) {
+                    if (currentScreen != "user" && authMessage != null) {
+                        Toast.makeText(this@MainActivity, authMessage, Toast.LENGTH_LONG).show()
+                        userViewModel.clearMessage()
+                    }
+                }
 
                 var selectedUser by remember {
                     mutableStateOf(
@@ -53,31 +66,48 @@ class MainActivity : ComponentActivity() {
                 }
 
                 fun navigateTo(screen: String) {
-                    backStack.add(screen)
+                    backStack = backStack + screen
                 }
 
                 fun navigateBack() {
                     if (backStack.size > 1) {
-                        backStack.removeAt(backStack.size - 1)
+                        backStack = backStack.dropLast(1)
                     }
                 }
 
-                // Menangani tombol kembali fisik / gesture sistem bawaan HP
-                BackHandler(enabled = backStack.size > 1) {
-                    navigateBack()
+                BackHandler(enabled = currentScreen != "user" && (backStack.size > 1 || currentScreen == "admin")) {
+                    if (currentScreen == "admin") backStack = listOf("login") else navigateBack()
                 }
 
                 when (currentScreen) {
                     "login" -> {
                         LoginScreen(
-                            onLoginClick = { _, _ -> navigateTo("admin") },
+                            onLoginClick = { email, password ->
+                                if (email.isBlank() || password.isBlank()) {
+                                    Toast.makeText(this@MainActivity, "Isi email dan password untuk masuk demo.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    backStack = listOf(if (email.trim().equals("admin@tulungin.demo", true)) "admin" else "user")
+                                    Toast.makeText(this@MainActivity, "Mode simulasi lokal, belum memakai autentikasi backend.", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            onGoogleLoginClick = { Toast.makeText(this@MainActivity, "Google Sign-In belum terhubung. Gunakan email dan password demo.", Toast.LENGTH_LONG).show() },
                             onRegisterClick = { navigateTo("register") }
                         )
+                    }
+                    "user" -> {
+                        UserApp(userViewModel) { backStack = listOf("login") }
                     }
                     "register" -> {
                         RegisterScreen(
                             onLoginClick = { navigateBack() },
-                            onRegisterClick = { _, _, _, _, _ -> navigateBack() }
+                            onRegisterClick = { name, email, password, phone, address ->
+                                if (password.length < 6) Toast.makeText(this@MainActivity, "Password demo minimal 6 karakter.", Toast.LENGTH_SHORT).show()
+                                else userViewModel.perform {
+                                    updateProfile(snapshot.value.profile.copy(name = name, email = email, phone = phone, address = address))
+                                    backStack = listOf("user")
+                                }
+                            },
+                            onGoogleSignUpClick = { Toast.makeText(this@MainActivity, "Pendaftaran Google belum terhubung pada demo.", Toast.LENGTH_LONG).show() }
                         )
                     }
                     "admin" -> {
