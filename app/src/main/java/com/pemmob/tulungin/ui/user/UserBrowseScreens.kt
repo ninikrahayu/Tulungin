@@ -31,7 +31,9 @@ internal fun HomeScreen(state: UserSnapshot, onCreate: () -> Unit, onBrowse: () 
             Box(Modifier.width(90.dp).height(32.dp).clickable(onClick = onBrowse), contentAlignment = Alignment.Center) { UText("Lihat Semua", weight = FontWeight.SemiBold, color = UserPrimary) }
         }
         Spacer(Modifier.height(12.dp))
-        val available = state.jobs.filter { it.status == JobStatus.AVAILABLE && it.requesterId != state.profile.id }.take(2)
+        val available = state.jobs.filter {
+            it.status == JobStatus.AVAILABLE
+        }.take(2)
         if (available.isEmpty()) Notice("Belum ada job", "Coba lagi nanti atau buat permintaan bantuanmu.")
         available.forEachIndexed { index, job ->
             if (index > 0) Spacer(Modifier.height(12.dp))
@@ -74,7 +76,12 @@ internal fun BrowseJobsScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
     var distance by rememberSaveable { mutableStateOf("Semua jarak") }
     var filter by rememberSaveable { mutableStateOf(false) }
     val maximumDistance = when (distance) { "Maksimal 2 km" -> 2.0; "Maksimal 5 km" -> 5.0; "Maksimal 10 km" -> 10.0; else -> Double.MAX_VALUE }
-    val jobs = state.jobs.filter { it.status == JobStatus.AVAILABLE && it.requesterId != state.profile.id && (query.isBlank() || "${it.title} ${it.category} ${it.location}".contains(query.trim(), true)) && (category == "Semua kategori" || it.category == category) && it.distanceKm <= maximumDistance }
+    val jobs = state.jobs.filter {
+        it.status == JobStatus.AVAILABLE &&
+                (query.isBlank() || "${it.title} ${it.category} ${it.location}".contains(query.trim(), true)) &&
+                (category == "Semua kategori" || it.category == category) &&
+                it.distanceKm <= maximumDistance
+    }
     UserContent {
         UserField("Cari Job", query, { query = it }, "Cari pekerjaan...")
         UserButton("Filter Job", onClick = { filter = true })

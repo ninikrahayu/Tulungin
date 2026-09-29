@@ -11,6 +11,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import com.google.firebase.firestore.ListenerRegistration
 
 class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
     private val auth = FirebaseAuth.getInstance()
@@ -21,6 +22,51 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         preferences.getString("snapshot", null)?.let { runCatching { SnapshotCodec.decode(it) }.getOrNull() } ?: DemoFixtures.initial()
     )
     override val snapshot: StateFlow<UserSnapshot> = mutableSnapshot.asStateFlow()
+    private var jobsListener: ListenerRegistration? = null
+
+    init {
+        jobsListener = firestore.collection("jobs")
+            .addSnapshotListener { querySnapshot, error ->
+                if (error != null) {
+                    return@addSnapshotListener
+                }
+
+                val documents = querySnapshot?.documents ?: return@addSnapshotListener
+
+                val firestoreJobs = documents.mapNotNull { document ->
+                    try {
+                        UserJob(
+                            id = document.getString("id") ?: document.id,
+                            title = document.getString("title") ?: "",
+                            category = document.getString("category") ?: "",
+                            description = document.getString("description") ?: "",
+                            location = document.getString("location") ?: "",
+                            scheduledAt = document.getString("scheduledAt") ?: "",
+                            fee = document.getLong("fee") ?: 0L,
+                            distanceKm = document.getDouble("distanceKm") ?: 0.0,
+                            requesterId = document.getString("requesterId") ?: "",
+                            requesterName = document.getString("requesterName") ?: "",
+                            helperId = document.getString("helperId"),
+                            helperName = document.getString("helperName"),
+                            status = JobStatus.valueOf(
+                                document.getString("status") ?: "AVAILABLE"
+                            ),
+                            proofUri = document.getString("proofUri"),
+                            proofName = document.getString("proofName"),
+                            rating = (document.getLong("rating") ?: 0L).toInt(),
+                            review = document.getString("review") ?: "",
+                            paymentMethod = document.getString("paymentMethod") ?: "",
+                            paid = document.getBoolean("paid") ?: false
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                val current = snapshot.value
+                save(current.copy(jobs = firestoreJobs))
+            }
+    }
 
     private fun save(state: UserSnapshot) {
         preferences.edit().putString("snapshot", SnapshotCodec.encode(state)).apply()
