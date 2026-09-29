@@ -7,8 +7,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
     private val preferences = context.applicationContext.getSharedPreferences("tulungin_user_demo_v1", Context.MODE_PRIVATE)
     private val mutex = Mutex()
     private val mutableSnapshot = MutableStateFlow(
@@ -28,15 +34,92 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
     }
 
     override suspend fun createJob(draft: JobDraft): String = mutex.withLock {
-        require(draft.title.trim().length >= 4) { "Judul minimal 4 karakter." }
-        require(draft.category in JobRules.categories) { "Pilih kategori bantuan." }
-        require(draft.description.trim().length >= 10) { "Detail kebutuhan minimal 10 karakter." }
-        require(draft.location.isNotBlank() && draft.scheduledAt.isNotBlank()) { "Lengkapi lokasi serta waktu." }
-        require(draft.fee in 1000..100000000) { "Upah harus antara Rp1.000 dan Rp100.000.000." }
+        require(draft.title.trim().length >= 4) {
+            "Judul minimal 4 karakter."
+        }
+        require(draft.category in JobRules.categories) {
+            "Pilih kategori bantuan."
+        }
+        require(draft.description.trim().length >= 10) {
+            "Detail kebutuhan minimal 10 karakter."
+        }
+        require(draft.location.isNotBlank() && draft.scheduledAt.isNotBlank()) {
+            "Lengkapi lokasi serta waktu."
+        }
+        require(draft.fee in 1000..100000000) {
+            "Upah harus antara Rp1.000 dan Rp100.000.000."
+        }
+
+        val firebaseUser = auth.currentUser
+            ?: error("Kamu harus login terlebih dahulu.")
+
         val current = snapshot.value
-        val id = UUID.randomUUID().toString()
-        val job = UserJob(id, draft.title.trim(), draft.category, draft.description.trim(), draft.location.trim(), draft.scheduledAt, draft.fee, 0.0, current.profile.id, current.profile.name)
-        save(current.copy(jobs = listOf(job) + current.jobs))
+
+        val id = firestore.collection("jobs").document().id
+
+        val requesterName = if (current.profile.id == firebaseUser.uid) {
+            current.profile.name
+        } else {
+            firebaseUser.displayName ?: "Pengguna"
+        }
+
+        val job = UserJob(
+            id = id,
+            title = draft.title.trim(),
+            category = draft.category,
+            description = draft.description.trim(),
+            location = draft.location.trim(),
+            scheduledAt = draft.scheduledAt,
+            fee = draft.fee,
+            distanceKm = 0.0,
+            requesterId = firebaseUser.uid,
+            requesterName = requesterName
+        )
+
+        val jobData = hashMapOf<String, Any?>(
+            "id" to id,
+            "title" to job.title,
+            "category" to job.category,
+            "description" to job.description,
+            "location" to job.location,
+            "scheduledAt" to job.scheduledAt,
+            "fee" to job.fee,
+            "distanceKm" to job.distanceKm,
+            "requesterId" to job.requesterId,
+            "requesterName" to job.requesterName,
+            "helperId" to null,
+            "helperName" to null,
+            "status" to "AVAILABLE",
+            "proofUri" to null,
+            "proofName" to null,
+            "rating" to 0,
+            "review" to "",
+            "paymentMethod" to "",
+            "paid" to false,
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+
+        // Simpan job ke Firestore
+        firestore.collection("jobs")
+            .document(id)
+            .set(jobData)
+            .await()
+
+        // Sinkronkan ID profil lokal dengan UID Firebase
+        val updatedProfile = current.profile.copy(
+            id = firebaseUser.uid,
+            name = requesterName,
+            email = firebaseUser.email ?: current.profile.email
+        )
+
+        // Perbarui snapshot lokal
+        save(
+            current.copy(
+                profile = updatedProfile,
+                jobs = listOf(job) + current.jobs
+            )
+        )
+
         id
     }
 
