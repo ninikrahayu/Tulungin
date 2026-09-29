@@ -3,26 +3,19 @@ package com.pemmob.tulungin
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.lifecycle.lifecycleScope
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
 import com.pemmob.tulungin.ui.admin.AdminDashboardScreen
 import com.pemmob.tulungin.ui.admin.DetailUser
 import com.pemmob.tulungin.ui.admin.KelolaKategori
@@ -30,17 +23,20 @@ import com.pemmob.tulungin.ui.admin.KelolaUser
 import com.pemmob.tulungin.ui.admin.UserItem
 import com.pemmob.tulungin.ui.auth.LoginScreen
 import com.pemmob.tulungin.ui.auth.RegisterScreen
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.mutableStateListOf
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.lifecycle.lifecycleScope
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.GoogleAuthProvider
 import com.pemmob.tulungin.ui.theme.TulunginTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private lateinit var auth: FirebaseAuth
-    private lateinit var credentialManager: CredentialManager
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        auth = FirebaseAuth.getInstance()
-        credentialManager = CredentialManager.create(this)
         enableEdgeToEdge()
         setContent {
             TulunginTheme {
@@ -72,17 +68,8 @@ class MainActivity : ComponentActivity() {
                 when (currentScreen) {
                     "login" -> {
                         LoginScreen(
-                            onLoginClick = { _, _ ->
-                                navigateTo("admin")
-                            },
-                            onGoogleLoginClick = {
-                                signInWithGoogle {
-                                    navigateTo("admin")
-                                }
-                            },
-                            onRegisterClick = {
-                                navigateTo("register")
-                            }
+                            onLoginClick = { _, _ -> navigateTo("admin") },
+                            onRegisterClick = { navigateTo("register") }
                         )
                     }
                     "register" -> {
@@ -123,7 +110,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
     private fun signInWithGoogle(onSuccess: () -> Unit) {
         lifecycleScope.launch {
             try {

@@ -40,7 +40,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
+import com.pemmob.tulungin.ui.theme.TulunginInputBg
+import com.pemmob.tulungin.ui.theme.TulunginInputBorder
+import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
+import com.pemmob.tulungin.ui.theme.TulunginMintBorder
+import com.pemmob.tulungin.ui.theme.TulunginPlaceholder
+import com.pemmob.tulungin.ui.theme.TulunginPrimary
+import com.pemmob.tulungin.ui.theme.TulunginSuccessContainer
+import com.pemmob.tulungin.ui.theme.TulunginSuccessContent
+import com.pemmob.tulungin.ui.theme.TulunginSuccessDot
+import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
+import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
 import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.TulunginWarningContainer
+import com.pemmob.tulungin.ui.theme.TulunginWarningContent
+import com.pemmob.tulungin.ui.theme.TulunginWarningDot
 
 data class UserItem(
     val id: Int,
@@ -103,14 +117,14 @@ fun KelolaUser(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_back),
                     contentDescription = "Kembali",
-                    tint = Color(0xFF0F1E24),
+                    tint = TulunginTextPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = "Kelola User/Akun",
-                color = Color(0xFF0F1E24),
+                color = TulunginTextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -128,7 +142,7 @@ fun KelolaUser(
                 placeholder = {
                     Text(
                         text = "Cari pengguna...",
-                        color = Color(0xFF8A969B),
+                        color = TulunginPlaceholder,
                         fontSize = 14.sp
                     )
                 },
@@ -136,20 +150,20 @@ fun KelolaUser(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_search),
                         contentDescription = "Search",
-                        tint = Color(0xFF7A898E),
+                        tint = TulunginTextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFD6DFDF),
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    focusedContainerColor = Color(0xFFF9FAFB),
-                    unfocusedContainerColor = Color(0xFFF9FAFB),
-                    focusedTextColor = Color(0xFF0F1E24),
-                    unfocusedTextColor = Color(0xFF0F1E24),
-                    cursorColor = Color(0xFF0F282F)
+                    focusedBorderColor = TulunginInputBorderFocused,
+                    unfocusedBorderColor = TulunginInputBorder,
+                    focusedContainerColor = TulunginInputBg,
+                    unfocusedContainerColor = TulunginInputBg,
+                    focusedTextColor = TulunginTextPrimary,
+                    unfocusedTextColor = TulunginTextPrimary,
+                    cursorColor = TulunginPrimary
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -187,7 +201,7 @@ private fun UserCardItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(Color.White)
-            .border(1.2.dp, Color(0xFFDCF4F4), RoundedCornerShape(18.dp))
+            .border(1.2.dp, TulunginMintBorder, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -196,7 +210,7 @@ private fun UserCardItem(
         Box(
             modifier = Modifier
                 .size(46.dp)
-                .background(Color(0xFF0F282F), RoundedCornerShape(12.dp)),
+                .background(TulunginPrimary, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -215,14 +229,14 @@ private fun UserCardItem(
         ) {
             Text(
                 text = user.name,
-                color = Color(0xFF0F1E24),
+                color = TulunginTextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = user.phone,
-                color = Color(0xFF7A898E),
+                color = TulunginTextSecondary,
                 fontSize = 13.sp
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -235,7 +249,7 @@ private fun UserCardItem(
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
             contentDescription = null,
-            tint = Color(0xFF7A898E),
+            tint = TulunginTextSecondary,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -243,9 +257,9 @@ private fun UserCardItem(
 
 @Composable
 private fun StatusBadge(isVerified: Boolean) {
-    val bgColor = if (isVerified) Color(0xFFD5F5E3) else Color(0xFFFDE8CD)
-    val contentColor = if (isVerified) Color(0xFF1E7E34) else Color(0xFFB45309)
-    val dotColor = if (isVerified) Color(0xFF28A745) else Color(0xFFEA580C)
+    val bgColor = if (isVerified) TulunginSuccessContainer else TulunginWarningContainer
+    val contentColor = if (isVerified) TulunginSuccessContent else TulunginWarningContent
+    val dotColor = if (isVerified) TulunginSuccessDot else TulunginWarningDot
     val text = if (isVerified) "Terverifikasi" else "Belum Diverifikasi"
 
     Row(

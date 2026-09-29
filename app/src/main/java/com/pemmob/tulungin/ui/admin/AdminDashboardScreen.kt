@@ -33,6 +33,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
+import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
+import com.pemmob.tulungin.ui.theme.TulunginMintBorder
+import com.pemmob.tulungin.ui.theme.TulunginMintLight
+import com.pemmob.tulungin.ui.theme.TulunginMintSoft
+import com.pemmob.tulungin.ui.theme.TulunginPrimary
+import com.pemmob.tulungin.ui.theme.TulunginTextMuted
+import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
 import com.pemmob.tulungin.ui.theme.TulunginTheme
 
 @Composable
@@ -114,7 +121,7 @@ fun AdminDashboardScreen(
         // Section 2: "Menu Utama" Title
         Text(
             text = "Menu Utama",
-            color = Color(0xFF0F1E24),
+            color = TulunginTextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.fillMaxWidth()
@@ -174,8 +181,8 @@ private fun StatCard(
 ) {
     Column(
         modifier = modifier
-            .background(Color(0xFFEEF3F3), RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFD6DFDF), RoundedCornerShape(16.dp))
+            .background(TulunginMintSoft, RoundedCornerShape(16.dp))
+            .border(1.dp, TulunginInputBorderFocused, RoundedCornerShape(16.dp))
             .padding(14.dp)
     ) {
         Row(
@@ -185,20 +192,20 @@ private fun StatCard(
         ) {
             Text(
                 text = title,
-                color = Color(0xFF7D8C90),
+                color = TulunginTextMuted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
             Box(
                 modifier = Modifier
                     .size(30.dp)
-                    .background(Color(0xFFD2F2F2), RoundedCornerShape(8.dp)),
+                    .background(TulunginMintLight, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painterResource(id = iconRes),
                     contentDescription = null,
-                    tint = Color(0xFF0F282F),
+                    tint = TulunginPrimary,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -206,7 +213,7 @@ private fun StatCard(
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = value,
-            color = Color(0xFF0F282F),
+            color = TulunginPrimary,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold
         )
@@ -225,7 +232,7 @@ private fun MenuCard(
             .height(130.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
-            .border(1.5.dp, Color(0xFFDCF4F4), RoundedCornerShape(20.dp))
+            .border(1.5.dp, TulunginMintBorder, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -234,7 +241,7 @@ private fun MenuCard(
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .background(Color(0xFF0F282F), RoundedCornerShape(12.dp)),
+                .background(TulunginPrimary, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -247,7 +254,7 @@ private fun MenuCard(
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = title,
-            color = Color(0xFF0F1E24),
+            color = TulunginTextPrimary,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
