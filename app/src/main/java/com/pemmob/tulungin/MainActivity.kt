@@ -114,7 +114,9 @@ class MainActivity : ComponentActivity() {
                                     auth.signInWithEmailAndPassword(email, password)
                                         .addOnCompleteListener { task ->
                                             if (task.isSuccessful) {
-                                                backStack = listOf("user")
+                                                syncEmailUser {
+                                                    backStack = listOf("user")
+                                                }
                                             } else {
                                                 Toast.makeText(
                                                     this@MainActivity,
@@ -744,6 +746,72 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(
                     this,
                     "Gagal menyimpan profile: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+    }
+    private fun syncEmailUser(onSuccess: () -> Unit) {
+        val user = auth.currentUser
+
+        if (user == null) {
+            Toast.makeText(
+                this,
+                "User tidak ditemukan.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        firestore
+            .collection("users")
+            .document(user.uid)
+            .get()
+            .addOnSuccessListener { document ->
+
+                if (!document.exists()) {
+                    Toast.makeText(
+                        this,
+                        "Data profile user tidak ditemukan.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@addOnSuccessListener
+                }
+
+                val name = document.getString("name") ?: ""
+                val email = document.getString("email")
+                    ?: user.email
+                    ?: ""
+                val phone = document.getString("phone") ?: ""
+                val address = document.getString("address") ?: ""
+
+                userViewModel.perform {
+                    updateProfile(
+                        snapshot.value.profile.copy(
+                            name = name,
+                            email = email,
+                            phone = phone,
+                            address = address
+                        )
+                    )
+                }
+
+                Log.d(
+                    "TulunginAuth",
+                    "Profile email user dimuat: ${user.uid}"
+                )
+
+                onSuccess()
+            }
+            .addOnFailureListener { e ->
+                Log.e(
+                    "TulunginAuth",
+                    "Gagal mengambil profile email user",
+                    e
+                )
+
+                Toast.makeText(
+                    this,
+                    "Gagal mengambil data profile: ${e.message}",
                     Toast.LENGTH_LONG
                 ).show()
             }
