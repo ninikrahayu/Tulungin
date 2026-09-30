@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
             TulunginTheme {
                 var backStack by rememberSaveable { mutableStateOf(listOf("login")) }
                 val currentScreen = backStack.lastOrNull() ?: "login"
+                var completingGoogleProfile by rememberSaveable {
+                    mutableStateOf(false)
+                }
                 val authMessage by userViewModel.message.collectAsState()
 
                 LaunchedEffect(authMessage, currentScreen) {
@@ -124,23 +127,40 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onGoogleLoginClick = {
-                                signInWithGoogle {
-                                    val target = if (auth.currentUser?.email?.trim()?.equals("admin@tulungin.demo", true) == true) "admin" else "user"
-                                    backStack = listOf(target)
-                                }
+                                signInWithGoogle(
+                                    onSuccess = {
+                                        val target =
+                                            if (
+                                                auth.currentUser?.email
+                                                    ?.trim()
+                                                    ?.equals("admin@tulungin.demo", true) == true
+                                            ) {
+                                                "admin"
+                                            } else {
+                                                "user"
+                                            }
+
+                                        backStack = listOf(target)
+                                    },
+                                    onIncomplete = {
+                                        completingGoogleProfile = true
+                                        backStack = listOf("register")
+                                    }
+                                )
                             },
                             onRegisterClick = { navigateTo("register") }
                         )
                     }
                     "user" -> {
-                        UserApp(userViewModel) { backStack = listOf("login") }
+                        UserApp(userViewModel) {
+                            auth.signOut()
+                            backStack = listOf("login")
+                        }
                     }
                     "register" -> {
                         RegisterScreen(
-                            onLoginClick = {
-                                navigateBack()
-                            },
 
+                            // Untuk register email/password biasa
                             onRegisterClick = { name, email, password, phone, address ->
 
                                 if (password.length < 6) {
@@ -176,8 +196,7 @@ class MainActivity : ComponentActivity() {
                                                 "photoUrl" to "",
                                                 "role" to "user",
                                                 "createdAt" to FieldValue.serverTimestamp(),
-                                                "updatedAt" to FieldValue.serverTimestamp(),
-                                                "verified" to false
+                                                "updatedAt" to FieldValue.serverTimestamp()
                                             )
 
                                             firestore
@@ -186,7 +205,6 @@ class MainActivity : ComponentActivity() {
                                                 .set(userData)
                                                 .addOnSuccessListener {
 
-                                                    // Tetap update state lokal aplikasi lu
                                                     userViewModel.perform {
                                                         updateProfile(
                                                             snapshot.value.profile.copy(
@@ -208,38 +226,66 @@ class MainActivity : ComponentActivity() {
                                                 }
                                                 .addOnFailureListener { e ->
 
-                                                    Toast.makeText(
-                                                        this@MainActivity,
-                                                        "Gagal menyimpan profil: ${e.message}",
-                                                        Toast.LENGTH_LONG
-                                                    ).show()
-
                                                     Log.e(
                                                         "TulunginAuth",
                                                         "Firestore gagal menyimpan user",
                                                         e
                                                     )
+
+                                                    Toast.makeText(
+                                                        this@MainActivity,
+                                                        "Gagal menyimpan profil: ${e.message}",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
                                                 }
 
                                         } else {
-
-                                            Toast.makeText(
-                                                this@MainActivity,
-                                                "Register gagal: ${task.exception?.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
 
                                             Log.e(
                                                 "TulunginAuth",
                                                 "Firebase Auth register gagal",
                                                 task.exception
                                             )
+
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Register gagal: ${task.exception?.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         }
                                     }
                             },
 
+                            // Google Sign Up biasa
                             onGoogleSignUpClick = {
-                                signInWithGoogle {
+                                signInWithGoogle(
+                                    onSuccess = {
+                                        backStack = listOf("user")
+                                    },
+                                    onIncomplete = {
+                                        completingGoogleProfile = true
+                                        backStack = listOf("register")
+                                    }
+                                )
+                            },
+
+                            onLoginClick = {
+                                navigateBack()
+                            },
+
+                            // INI MODE GOOGLE PROFILE
+                            isCompletingProfile = completingGoogleProfile,
+
+                            initialName = auth.currentUser?.displayName ?: "",
+                            initialEmail = auth.currentUser?.email ?: "",
+
+                            onCompleteProfileClick = { phone, address ->
+
+                                completeGoogleProfile(
+                                    phone = phone,
+                                    address = address
+                                ) {
+                                    completingGoogleProfile = false
                                     backStack = listOf("user")
                                 }
                             }
@@ -303,7 +349,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun signInWithGoogle(onSuccess: () -> Unit) {
+    private fun signInWithGoogle(
+        onSuccess: () -> Unit,
+        onIncomplete: () -> Unit
+    ) {
         lifecycleScope.launch {
             try {
                 val signInWithGoogleOption =
@@ -333,7 +382,8 @@ class MainActivity : ComponentActivity() {
 
                     firebaseAuthWithGoogle(
                         idToken = googleIdTokenCredential.idToken,
-                        onSuccess = onSuccess
+                        onSuccess = onSuccess,
+                        onIncomplete = onIncomplete
                     )
                 } else {
                     Log.e(
@@ -459,7 +509,8 @@ class MainActivity : ComponentActivity() {
 
     private fun firebaseAuthWithGoogle(
         idToken: String,
-        onSuccess: () -> Unit
+        onSuccess: () -> Unit,
+        onIncomplete: () -> Unit
     ) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
 
@@ -473,15 +524,17 @@ class MainActivity : ComponentActivity() {
                         "Login berhasil: ${user?.email}"
                     )
 
-                    syncGoogleUser {
-                        onSuccess()
-                    }
+                    syncGoogleUser(
+                        onSuccess = onSuccess,
+                        onIncomplete = onIncomplete
+                    )
                 } else {
                     Log.e(
                         "TulunginAuth",
                         "Firebase login gagal",
                         task.exception
                     )
+
                     Toast.makeText(
                         this@MainActivity,
                         "Firebase Auth Gagal: ${task.exception?.message}",
@@ -491,7 +544,10 @@ class MainActivity : ComponentActivity() {
             }
     }
 
-    private fun syncGoogleUser(onSuccess: () -> Unit) {
+    private fun syncGoogleUser(
+        onSuccess: () -> Unit,
+        onIncomplete: () -> Unit
+    ) {
         val user = auth.currentUser
 
         if (user == null) {
@@ -512,7 +568,6 @@ class MainActivity : ComponentActivity() {
 
                 if (document.exists()) {
 
-                    // User Google sudah pernah terdaftar
                     val name = document.getString("name")
                         ?: user.displayName
                         ?: ""
@@ -527,6 +582,22 @@ class MainActivity : ComponentActivity() {
                     val address = document.getString("address")
                         ?: ""
 
+                    // Profile belum lengkap
+                    if (
+                        name.isBlank() ||
+                        phone.isBlank() ||
+                        address.isBlank()
+                    ) {
+                        Log.d(
+                            "TulunginAuth",
+                            "Profile Google belum lengkap: ${user.uid}"
+                        )
+
+                        onIncomplete()
+                        return@addOnSuccessListener
+                    }
+
+                    // Profile sudah lengkap
                     userViewModel.perform {
                         updateProfile(
                             snapshot.value.profile.copy(
@@ -540,14 +611,14 @@ class MainActivity : ComponentActivity() {
 
                     Log.d(
                         "TulunginAuth",
-                        "Profile Google ditemukan: ${user.uid}"
+                        "Profile Google lengkap: ${user.uid}"
                     )
 
                     onSuccess()
 
                 } else {
 
-                    // Google user baru
+                    // User Google baru
                     val name = user.displayName ?: ""
                     val email = user.email ?: ""
                     val photoUrl = user.photoUrl?.toString() ?: ""
@@ -566,23 +637,14 @@ class MainActivity : ComponentActivity() {
                     userRef.set(userData)
                         .addOnSuccessListener {
 
-                            userViewModel.perform {
-                                updateProfile(
-                                    snapshot.value.profile.copy(
-                                        name = name,
-                                        email = email,
-                                        phone = "",
-                                        address = ""
-                                    )
-                                )
-                            }
-
                             Log.d(
                                 "TulunginAuth",
                                 "Profile Google baru dibuat: ${user.uid}"
                             )
 
-                            onSuccess()
+                            // Karena HP dan alamat masih kosong,
+                            // jangan masuk UserApp dulu.
+                            onIncomplete()
                         }
                         .addOnFailureListener { e ->
 
@@ -611,6 +673,77 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(
                     this,
                     "Gagal mengambil data profile.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+    }
+
+    private fun completeGoogleProfile(
+        phone: String,
+        address: String,
+        onSuccess: () -> Unit
+    ) {
+        val user = auth.currentUser
+
+        if (user == null) {
+            Toast.makeText(
+                this,
+                "User belum login.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        if (phone.isBlank() || address.isBlank()) {
+            Toast.makeText(
+                this,
+                "Nomor HP dan alamat wajib diisi.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        firestore
+            .collection("users")
+            .document(user.uid)
+            .update(
+                mapOf(
+                    "phone" to phone,
+                    "address" to address,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .addOnSuccessListener {
+
+                userViewModel.perform {
+                    updateProfile(
+                        snapshot.value.profile.copy(
+                            name = user.displayName ?: "",
+                            email = user.email ?: "",
+                            phone = phone,
+                            address = address
+                        )
+                    )
+                }
+
+                Log.d(
+                    "TulunginAuth",
+                    "Google profile berhasil dilengkapi: ${user.uid}"
+                )
+
+                onSuccess()
+            }
+            .addOnFailureListener { e ->
+
+                Log.e(
+                    "TulunginAuth",
+                    "Gagal melengkapi profile Google",
+                    e
+                )
+
+                Toast.makeText(
+                    this,
+                    "Gagal menyimpan profile: ${e.message}",
                     Toast.LENGTH_LONG
                 ).show()
             }

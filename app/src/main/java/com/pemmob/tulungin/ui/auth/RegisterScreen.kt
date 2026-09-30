@@ -66,8 +66,8 @@ fun RegisterScreen(
     initialEmail: String = "",
     onCompleteProfileClick: (phone: String, address: String) -> Unit = { _, _ -> }
 ) {
-    var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf(initialName) }
+    var email by remember { mutableStateOf(initialEmail) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var phoneNumber by remember { mutableStateOf("") }
@@ -168,6 +168,7 @@ fun RegisterScreen(
                 label = { Text("Nama lengkap") },
                 placeholder = { Text("Nama lengkap") },
                 singleLine = true,
+                enabled = !isCompletingProfile,
                 shape = RoundedCornerShape(16.dp),
                 colors = textFieldColors,
                 keyboardOptions = KeyboardOptions(
@@ -186,6 +187,7 @@ fun RegisterScreen(
                 label = { Text("Email") },
                 placeholder = { Text("Email address") },
                 singleLine = true,
+                enabled = !isCompletingProfile,
                 shape = RoundedCornerShape(16.dp),
                 colors = textFieldColors,
                 keyboardOptions = KeyboardOptions(
@@ -198,35 +200,56 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             // 3. Password TextField
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                placeholder = { Text("Enter Password") },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = textFieldColors,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Next
-                ),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            painter = painterResource(
-                                id = if (passwordVisible) R.drawable.ic_eye else R.drawable.ic_eye_off
-                            ),
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            tint = primaryDark,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!isCompletingProfile) {
+                // 3. Password TextField
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    placeholder = { Text("Enter Password") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = textFieldColors,
+                    visualTransformation =
+                        if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Next
+                    ),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                passwordVisible = !passwordVisible
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (passwordVisible) {
+                                        R.drawable.ic_eye
+                                    } else {
+                                        R.drawable.ic_eye_off
+                                    }
+                                ),
+                                contentDescription =
+                                    if (passwordVisible) {
+                                        "Hide password"
+                                    } else {
+                                        "Show password"
+                                    },
+                                tint = primaryDark,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+            }
 
             // 4. Nomor HP TextField
             OutlinedTextField(
@@ -262,7 +285,21 @@ fun RegisterScreen(
                 keyboardActions = KeyboardActions(
                     onDone = {
                         focusManager.clearFocus()
-                        onRegisterClick(fullName, email, password, phoneNumber, address)
+
+                        if (isCompletingProfile) {
+                            onCompleteProfileClick(
+                                phoneNumber,
+                                address
+                            )
+                        } else {
+                            onRegisterClick(
+                                fullName,
+                                email,
+                                password,
+                                phoneNumber,
+                                address
+                            )
+                        }
                     }
                 ),
                 modifier = Modifier.fillMaxWidth()
@@ -274,7 +311,21 @@ fun RegisterScreen(
             Button(
                 onClick = {
                     focusManager.clearFocus()
-                    onRegisterClick(fullName, email, password, phoneNumber, address)
+
+                    if (isCompletingProfile) {
+                        onCompleteProfileClick(
+                            phoneNumber,
+                            address
+                        )
+                    } else {
+                        onRegisterClick(
+                            fullName,
+                            email,
+                            password,
+                            phoneNumber,
+                            address
+                        )
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -287,7 +338,11 @@ fun RegisterScreen(
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
-                    text = "Sign Up",
+                    text = if (isCompletingProfile) {
+                        "Save Profile"
+                    } else {
+                        "Sign Up"
+                    },
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
@@ -297,52 +352,62 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // "Sign up with google" Button
-            OutlinedButton(
-                onClick = onGoogleSignUpClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(26.dp),
-                border = BorderStroke(1.2.dp, borderColor),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = googleTextColor
-                )
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_google_logo),
-                    contentDescription = "Google Logo",
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Sign up with google",
-                    color = googleTextColor,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
+            if (!isCompletingProfile) {
+                OutlinedButton(
+                    onClick = onGoogleSignUpClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    border = BorderStroke(1.2.dp, borderColor),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = googleTextColor
+                    )
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_google_logo),
+                        contentDescription = "Google Logo",
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Text(
+                        text = "Sign up with google",
+                        color = googleTextColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
             // "Already have an account? Log in"
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Already have an account? ",
-                    color = Color(0xFF6B787E),
-                    fontSize = 14.sp
-                )
-                Text(
-                    text = "Log in",
-                    color = primaryDark,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable(onClick = onLoginClick)
-                )
-            }
+            if (!isCompletingProfile) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Already have an account? ",
+                        color = Color(0xFF6B787E),
+                        fontSize = 14.sp
+                    )
 
+                    Text(
+                        text = "Log in",
+                        color = primaryDark,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(
+                            onClick = onLoginClick
+                        )
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(36.dp))
         }
     }
