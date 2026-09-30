@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
     private lateinit var credentialManager: CredentialManager
+    private lateinit var userViewModel: UserViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +59,7 @@ class MainActivity : ComponentActivity() {
         credentialManager = CredentialManager.create(this)
 
         enableEdgeToEdge()
-        val userViewModel = ViewModelProvider(this)[UserViewModel::class.java]
+        userViewModel = ViewModelProvider(this)[UserViewModel::class.java]
         setContent {
             TulunginTheme {
                 var backStack by rememberSaveable { mutableStateOf(listOf("login")) }
@@ -472,7 +473,9 @@ class MainActivity : ComponentActivity() {
                         "Login berhasil: ${user?.email}"
                     )
 
-                    onSuccess()
+                    syncGoogleUser {
+                        onSuccess()
+                    }
                 } else {
                     Log.e(
                         "TulunginAuth",
@@ -485,6 +488,131 @@ class MainActivity : ComponentActivity() {
                         Toast.LENGTH_LONG
                     ).show()
                 }
+            }
+    }
+
+    private fun syncGoogleUser(onSuccess: () -> Unit) {
+        val user = auth.currentUser
+
+        if (user == null) {
+            Toast.makeText(
+                this,
+                "User Google tidak ditemukan.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val userRef = firestore
+            .collection("users")
+            .document(user.uid)
+
+        userRef.get()
+            .addOnSuccessListener { document ->
+
+                if (document.exists()) {
+
+                    // User Google sudah pernah terdaftar
+                    val name = document.getString("name")
+                        ?: user.displayName
+                        ?: ""
+
+                    val email = document.getString("email")
+                        ?: user.email
+                        ?: ""
+
+                    val phone = document.getString("phone")
+                        ?: ""
+
+                    val address = document.getString("address")
+                        ?: ""
+
+                    userViewModel.perform {
+                        updateProfile(
+                            snapshot.value.profile.copy(
+                                name = name,
+                                email = email,
+                                phone = phone,
+                                address = address
+                            )
+                        )
+                    }
+
+                    Log.d(
+                        "TulunginAuth",
+                        "Profile Google ditemukan: ${user.uid}"
+                    )
+
+                    onSuccess()
+
+                } else {
+
+                    // Google user baru
+                    val name = user.displayName ?: ""
+                    val email = user.email ?: ""
+                    val photoUrl = user.photoUrl?.toString() ?: ""
+
+                    val userData = hashMapOf(
+                        "name" to name,
+                        "email" to email,
+                        "phone" to "",
+                        "address" to "",
+                        "photoUrl" to photoUrl,
+                        "role" to "user",
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+
+                    userRef.set(userData)
+                        .addOnSuccessListener {
+
+                            userViewModel.perform {
+                                updateProfile(
+                                    snapshot.value.profile.copy(
+                                        name = name,
+                                        email = email,
+                                        phone = "",
+                                        address = ""
+                                    )
+                                )
+                            }
+
+                            Log.d(
+                                "TulunginAuth",
+                                "Profile Google baru dibuat: ${user.uid}"
+                            )
+
+                            onSuccess()
+                        }
+                        .addOnFailureListener { e ->
+
+                            Log.e(
+                                "TulunginAuth",
+                                "Gagal membuat profile Google",
+                                e
+                            )
+
+                            Toast.makeText(
+                                this,
+                                "Gagal menyimpan profile Google.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                }
+            }
+            .addOnFailureListener { e ->
+
+                Log.e(
+                    "TulunginAuth",
+                    "Gagal membaca profile Google",
+                    e
+                )
+
+                Toast.makeText(
+                    this,
+                    "Gagal mengambil data profile.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
     }
 }

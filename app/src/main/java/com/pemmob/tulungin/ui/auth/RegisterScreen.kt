@@ -59,7 +59,12 @@ fun RegisterScreen(
     modifier: Modifier = Modifier,
     onRegisterClick: (fullName: String, email: String, password: String, phoneNumber: String, address: String) -> Unit = { _, _, _, _, _ -> },
     onGoogleSignUpClick: () -> Unit = {},
-    onLoginClick: () -> Unit = {}
+    onLoginClick: () -> Unit = {},
+
+    isCompletingProfile: Boolean = false,
+    initialName: String = "",
+    initialEmail: String = "",
+    onCompleteProfileClick: (phone: String, address: String) -> Unit = { _, _ -> }
 ) {
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -143,7 +148,11 @@ fun RegisterScreen(
 
             // Title "Create Account"
             Text(
-                text = "Create Account",
+                text = if (isCompletingProfile) {
+                    "Complete Profile"
+                } else {
+                    "Create Account"
+                },
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F1E24),
