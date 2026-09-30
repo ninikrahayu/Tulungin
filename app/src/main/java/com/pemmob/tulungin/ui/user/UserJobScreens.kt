@@ -9,6 +9,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -27,8 +29,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun JobDetailScreen(job: UserJob, busy: Boolean, onAccept: () -> Unit, onMap: () -> Unit) {
+internal fun JobDetailScreen(
+    job: UserJob,
+    profile: UserProfile,
+    applications: List<UserApplication>,
+    busy: Boolean,
+    onApply: () -> Unit,
+    onSelectApp: (String) -> Unit,
+    onMap: () -> Unit
+) {
     var confirm by rememberSaveable(job.id) { mutableStateOf(false) }
+    val isRequester = job.requesterId == profile.id
+    val myApp = applications.firstOrNull { it.jobId == job.id && it.applicantId == profile.id }
+    val jobApplications = applications.filter { it.jobId == job.id }
+
     UserContent {
         UText(job.title, size = 16, weight = FontWeight.Bold, lineHeight = 22)
         StatusStrip(job.category)
@@ -36,9 +50,49 @@ internal fun JobDetailScreen(job: UserJob, busy: Boolean, onAccept: () -> Unit, 
         DetailCard("Lokasi", job.location, onMap)
         DetailCard("Waktu", job.scheduledAt)
         DetailCard("Upah Jasa", rupiah(job.fee))
-        UserButton("Ambil Job", enabled = !busy && job.status == JobStatus.AVAILABLE) { confirm = true }
+
+        if (isRequester) {
+            Spacer(Modifier.height(8.dp))
+            UText("Daftar Pelamar (${jobApplications.size})", size = 16, weight = FontWeight.Bold)
+            if (jobApplications.isEmpty()) {
+                Notice("Belum ada pelamar", "Belum ada Penulung yang melamar job ini.")
+            } else {
+                jobApplications.forEach { app ->
+                    UserCard {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                UText(app.applicantName, weight = FontWeight.SemiBold)
+                                UText("Status: ${app.status}", size = 13, color = if (app.status == "accepted") UserPrimary else UserSecondary)
+                            }
+                            if (job.status == JobStatus.AVAILABLE && job.helperId == null && app.status == "pending") {
+                                Button(
+                                    onClick = { onSelectApp(app.id) },
+                                    enabled = !busy,
+                                    colors = ButtonDefaults.buttonColors(containerColor = UserPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    UText("Terima", color = Color.White, weight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        } else {
+            if (myApp == null) {
+                UserButton("Lamar Job", enabled = !busy && job.status == JobStatus.AVAILABLE && job.helperId == null) { confirm = true }
+            } else {
+                when (myApp.status) {
+                    "pending" -> Notice("Status Lamaran", "Lamaranmu sudah dikirim (Pending). Menunggu pilihan dari peminta job.")
+                    "accepted" -> Notice("Status Lamaran", "Lamaranmu DITERIMA! Job sedang berlangsung.")
+                    "rejected" -> Notice("Status Lamaran", "Lamaranmu ditolak oleh peminta.")
+                }
+            }
+        }
     }
-    if (confirm) ConfirmDialog("Ambil Job?", "Kamu akan mengambil job ${job.title}. Lanjutkan?", "Ambil Job", { confirm = false }) { confirm = false; onAccept() }
+    if (confirm) ConfirmDialog("Lamar Job?", "Kamu akan melamar job ${job.title}. Lanjutkan?", "Lamar", { confirm = false }) { confirm = false; onApply() }
 }
 
 @Composable
@@ -59,7 +113,7 @@ internal fun ActiveJobScreen(job: UserJob, profile: UserProfile, busy: Boolean, 
             if (job.helperId != null) UserButton("Buka Chat", secondary = true, onClick = onChat)
             if (job.status == JobStatus.AWAITING_CONFIRMATION) UserButton("Periksa Bukti Penyelesaian", onClick = onConfirm)
         }
-        if (job.status == JobStatus.AVAILABLE && requester) Notice("Menunggu Penulung", "Permintaanmu sudah diterbitkan. Penulung dapat mengambilnya.")
+        if (job.status == JobStatus.AVAILABLE && requester) Notice("Menunggu Penulung", "Permintaanmu sudah diterbitkan. Penulung dapat melamar dan kamu dapat memilihnya.")
         if (!requester && job.status == JobStatus.AWAITING_CONFIRMATION) Notice("Bukti terkirim", "Menunggu peminta memeriksa dan mengonfirmasi pekerjaan.")
         if (job.status == JobStatus.AVAILABLE && requester || job.status == JobStatus.IN_PROGRESS && requester || job.status == JobStatus.AWAITING_CONFIRMATION && !requester) {
             UserButton("Simulasikan lawan transaksi", secondary = true, onClick = onDemo)
@@ -157,7 +211,7 @@ internal fun HistoryDetailScreen(job: UserJob, profile: UserProfile, onReview: (
             else if (job.requesterId == profile.id) UserButton("Beri Ulasan", onClick = onReview)
             if (job.requesterId == profile.id && !job.paid) UserButton("Pembayaran", onClick = onPay)
             if (job.paid) UText("Sudah dibayar · ${job.paymentMethod.ifBlank { "Simulasi" }}", size = 12, color = UserSecondary)
-        } else Notice("Permintaan dibatalkan", "Tidak ada pembayaran atau ulasan untuk pekerjaan ini.")
+        } else Notice("Permintaan", "Status job: ${job.status.label}")
     }
 }
 

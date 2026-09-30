@@ -40,6 +40,15 @@ data class UserJob(
     val paid: Boolean = false
 )
 
+data class UserApplication(
+    val id: String,
+    val jobId: String,
+    val applicantId: String,
+    val applicantName: String,
+    val status: String = "pending", // "pending", "accepted", "rejected"
+    val createdAt: Long = System.currentTimeMillis()
+)
+
 data class JobDraft(
     val title: String,
     val category: String,
@@ -55,6 +64,7 @@ data class SupportTicket(val id: String, val message: String)
 data class UserSnapshot(
     val profile: UserProfile = UserProfile(),
     val jobs: List<UserJob> = emptyList(),
+    val applications: List<UserApplication> = emptyList(),
     val conversations: List<Conversation> = emptyList(),
     val tickets: List<SupportTicket> = emptyList()
 )
@@ -68,7 +78,7 @@ object JobRules {
     }
 
     fun start(job: UserJob, userId: String): UserJob {
-        require(job.helperId == userId && job.status == JobStatus.ACCEPTED) { "Job belum dapat dimulai." }
+        require(job.helperId == userId && (job.status == JobStatus.ACCEPTED || job.status == JobStatus.IN_PROGRESS)) { "Job belum dapat dimulai." }
         return job.copy(status = JobStatus.IN_PROGRESS)
     }
 

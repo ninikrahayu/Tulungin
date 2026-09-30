@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.StateFlow
 interface UserRepository {
     val snapshot: StateFlow<UserSnapshot>
     suspend fun createJob(draft: JobDraft): String
+    suspend fun applyJob(jobId: String)
+    suspend fun selectApplication(jobId: String, applicationId: String)
     suspend fun acceptJob(id: String)
     suspend fun startJob(id: String)
     suspend fun submitProof(id: String, uri: String, name: String)

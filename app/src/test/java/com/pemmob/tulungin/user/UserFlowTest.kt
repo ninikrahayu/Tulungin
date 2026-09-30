@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.pemmob.tulungin.ui.user.*
 import com.pemmob.tulungin.data.user.*
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -45,7 +46,7 @@ class UserFlowTest {
     }
 
     @Test
-    fun browseFilterAcceptAndStartJob() {
+    fun browseFilterApplyAndStartJob() {
         compose.setContent { UserApp(model) {} }
         compose.onNodeWithText("Halo, Andi!").assertIsDisplayed()
         capture("01-beranda")
@@ -57,14 +58,11 @@ class UserFlowTest {
         compose.onNodeWithText("Terapkan Filter").performClick()
         compose.onNodeWithText("Bantu Pindahan Kos").performClick()
         capture("04-detail-job")
-        compose.onNodeWithText("Ambil Job").performClick()
-        compose.onNodeWithText("Ambil Job?").assertIsDisplayed()
-        compose.onAllNodesWithText("Ambil Job").onLast().performClick()
-        compose.onNodeWithText("Job Aktif").assertIsDisplayed()
-        compose.onNodeWithText("Perbarui Status").performClick()
-        compose.onNodeWithText("Mulai pekerjaan").performClick()
-        compose.onNodeWithText("Sedang dikerjakan").assertIsDisplayed()
-        capture("05-job-aktif")
+        compose.onNodeWithText("Lamar Job").performClick()
+        compose.onNodeWithText("Lamar Job?").assertIsDisplayed()
+        compose.onAllNodesWithText("Lamar").onLast().performClick()
+        compose.onNodeWithText("Cari Job").assertIsDisplayed()
+        capture("05-lamaran-terkirim")
     }
 
     @Test
@@ -109,7 +107,7 @@ class UserFlowTest {
         val id = first.createJob(JobDraft("Antar buku", "Pengantaran", "Antarkan buku ke kampus.", "Jl. Kampus 12", "30 September 2026 · 10.00", 15000))
         first.sendSupport("Tolong bantu periksa permintaan saya.")
         val second = LocalDemoRepository(app)
-        org.junit.Assert.assertTrue(second.snapshot.value.jobs.any { it.id == id })
-        org.junit.Assert.assertEquals(1, second.snapshot.value.tickets.size)
+        Assert.assertTrue(second.snapshot.value.jobs.any { it.id == id })
+        Assert.assertEquals(1, second.snapshot.value.tickets.size)
     }
 }

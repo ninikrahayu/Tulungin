@@ -21,6 +21,10 @@ internal object SnapshotCodec {
             put("status", job.status.name); put("proofUri", job.proofUri ?: JSONObject.NULL); put("proofName", job.proofName ?: JSONObject.NULL)
             put("rating", job.rating); put("review", job.review); put("paymentMethod", job.paymentMethod); put("paid", job.paid)
         } }))
+        put("applications", JSONArray(state.applications.map { app -> JSONObject().apply {
+            put("id", app.id); put("jobId", app.jobId); put("applicantId", app.applicantId)
+            put("applicantName", app.applicantName); put("status", app.status); put("createdAt", app.createdAt)
+        } }))
         put("conversations", JSONArray(state.conversations.map { chat -> JSONObject().apply {
             put("jobId", chat.jobId); put("name", chat.name)
             put("messages", JSONArray(chat.messages.map { message -> JSONObject().apply {
@@ -43,6 +47,10 @@ internal object SnapshotCodec {
                 status = JobStatus.valueOf(j.getString("status")), proofUri = j.stringOrNull("proofUri"), proofName = j.stringOrNull("proofName"),
                 rating = j.getInt("rating"), review = j.getString("review"), paymentMethod = j.getString("paymentMethod"), paid = j.getBoolean("paid")
             ) },
+            applications = root.optJSONArray("applications")?.mapObjects { a -> UserApplication(
+                id = a.getString("id"), jobId = a.getString("jobId"), applicantId = a.getString("applicantId"),
+                applicantName = a.getString("applicantName"), status = a.getString("status"), createdAt = a.optLong("createdAt", System.currentTimeMillis())
+            ) } ?: emptyList(),
             conversations = root.getJSONArray("conversations").mapObjects { chat -> Conversation(
                 chat.getString("jobId"), chat.getString("name"), chat.getJSONArray("messages").mapObjects { ChatMessage(it.getString("id"), it.getString("text"), it.getBoolean("outgoing")) }
             ) },

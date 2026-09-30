@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pemmob.tulungin.data.user.*
@@ -23,7 +24,7 @@ internal fun HomeScreen(state: UserSnapshot, onCreate: () -> Unit, onBrowse: () 
         Column(Modifier.fillMaxWidth().heightIn(min = 184.dp).background(UserMint, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             UText("Butuh bantuan?", size = 20, weight = FontWeight.Bold, color = UserPrimary, lineHeight = 28)
             UText("Buat permintaan dan temukan Penulung untuk membantumu.", color = UserPrimary, lineHeight = 20)
-            Button(onClick = onCreate, modifier = Modifier.width(204.dp).height(44.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = UserPrimary), contentPadding = PaddingValues(12.dp)) { UText("Buat Permintaan", color = androidx.compose.ui.graphics.Color.White, weight = FontWeight.SemiBold, lineHeight = 20) }
+            Button(onClick = onCreate, modifier = Modifier.width(204.dp).height(44.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = UserPrimary), contentPadding = PaddingValues(12.dp)) { UText("Buat Permintaan", color = Color.White, weight = FontWeight.SemiBold, lineHeight = 20) }
         }
         Spacer(Modifier.height(28.dp))
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -93,7 +94,7 @@ internal fun BrowseJobsScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
         var draftCategory by rememberSaveable { mutableStateOf(category) }
         var draftDistance by rememberSaveable { mutableStateOf(distance) }
         var choosing by rememberSaveable { mutableStateOf("") }
-        ModalBottomSheet(onDismissRequest = { filter = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), dragHandle = {
+        ModalBottomSheet(onDismissRequest = { filter = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color.White, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), dragHandle = {
             Box(Modifier.fillMaxWidth().padding(start = 24.dp, top = 24.dp, bottom = 14.dp)) { Box(Modifier.size(40.dp, 4.dp).background(UserOutline, RoundedCornerShape(2.dp))) }
         }) {
             Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -111,9 +112,12 @@ internal fun BrowseJobsScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
 @Composable
 internal fun HistoryScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
     UserContent {
-        UText("Riwayat Job", size = 16, weight = FontWeight.Bold, lineHeight = 22)
-        val jobs = state.jobs.filter { (it.requesterId == state.profile.id || it.helperId == state.profile.id) && it.status in listOf(JobStatus.COMPLETED, JobStatus.CANCELLED) }
-        if (jobs.isEmpty()) Notice("Belum ada riwayat", "Pekerjaan yang selesai atau dibatalkan akan tampil di sini.")
+        UText("Riwayat & Job Berlangsung", size = 16, weight = FontWeight.Bold, lineHeight = 22)
+        val jobs = state.jobs.filter {
+            (it.requesterId == state.profile.id || it.helperId == state.profile.id) &&
+            it.status in listOf(JobStatus.IN_PROGRESS, JobStatus.ACCEPTED, JobStatus.AWAITING_CONFIRMATION, JobStatus.COMPLETED, JobStatus.CANCELLED)
+        }
+        if (jobs.isEmpty()) Notice("Belum ada riwayat", "Pekerjaan yang sedang dikerjakan, selesai, atau dibatalkan akan tampil di sini.")
         jobs.forEach { job ->
             UserCard(Modifier.heightIn(min = 82.dp), onClick = { onJob(job) }) {
                 UText(job.title, size = 15, weight = FontWeight.SemiBold, lineHeight = 22)

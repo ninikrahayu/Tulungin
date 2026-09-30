@@ -38,7 +38,7 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
             val route = when {
                 value.status in listOf(JobStatus.COMPLETED, JobStatus.CANCELLED) -> "history_detail"
                 value.requesterId == state.profile.id && value.status == JobStatus.AWAITING_CONFIRMATION -> "confirm"
-                value.status == JobStatus.AVAILABLE && value.requesterId != state.profile.id -> "detail"
+                value.status == JobStatus.AVAILABLE -> "detail"
                 else -> "active"
             }
             navigate("$route/${value.id}")
@@ -80,7 +80,7 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
                         else -> {
                             if (job == null) UserContent { Notice("Job tidak ditemukan", "Job mungkin sudah direset. Kembali ke Beranda untuk melanjutkan."); UserButton("Ke Beranda") { tab("home") } }
                             else when (screen) {
-                                "detail" -> JobDetailScreen(job, busy, { viewModel.perform("Job berhasil diambil.") { acceptJob(job.id); stack = stack.dropLast(1) + "active/${job.id}" } }, { navigate("map/${job.id}") })
+                                "detail" -> JobDetailScreen(job, state.profile, state.applications, busy, { viewModel.perform("Lamaran berhasil dikirim.") { applyJob(job.id); back() } }, { appId -> viewModel.perform("Penulung berhasil dipilih.") { selectApplication(job.id, appId); stack = stack.dropLast(1) + "active/${job.id}" } }, { navigate("map/${job.id}") })
                                 "active" -> ActiveJobScreen(job, state.profile, busy, { statusDialog = true }, { navigate("chat/${job.id}") }, { navigate("proof/${job.id}") }, { navigate("confirm/${job.id}") }, { navigate("map/${job.id}") }, { viewModel.perform("Aksi lawan transaksi disimulasikan.") {
                                     (this as? DemoControls)?.simulateCounterparty(job.id) ?: error("Mode simulasi tidak tersedia.")
                                     val updated = this.snapshot.value.jobs.first { it.id == job.id }
