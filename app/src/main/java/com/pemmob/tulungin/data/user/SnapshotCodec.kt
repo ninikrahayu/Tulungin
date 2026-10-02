@@ -15,7 +15,10 @@ internal object SnapshotCodec {
         })
         put("jobs", JSONArray(state.jobs.map { job -> JSONObject().apply {
             put("id", job.id); put("title", job.title); put("category", job.category); put("description", job.description)
-            put("location", job.location); put("scheduledAt", job.scheduledAt); put("fee", job.fee); put("distanceKm", job.distanceKm)
+            put("location", job.location)
+            put("locationLat", job.locationLat ?: JSONObject.NULL)
+            put("locationLng", job.locationLng ?: JSONObject.NULL)
+            put("scheduledAt", job.scheduledAt); put("fee", job.fee); put("distanceKm", job.distanceKm)
             put("requesterId", job.requesterId); put("requesterName", job.requesterName)
             put("helperId", job.helperId ?: JSONObject.NULL); put("helperName", job.helperName ?: JSONObject.NULL)
             put("status", job.status.name); put("proofUri", job.proofUri ?: JSONObject.NULL); put("proofName", job.proofName ?: JSONObject.NULL)
@@ -44,7 +47,10 @@ internal object SnapshotCodec {
             profile = UserProfile(p.getString("id"), p.getString("name"), p.getString("email"), p.getString("phone"), p.getString("address"), p.getBoolean("verified")),
             jobs = root.getJSONArray("jobs").mapObjects { j -> UserJob(
                 id = j.getString("id"), title = j.getString("title"), category = j.getString("category"), description = j.getString("description"),
-                location = j.getString("location"), scheduledAt = j.getString("scheduledAt"), fee = j.getLong("fee"), distanceKm = j.getDouble("distanceKm"),
+                location = j.getString("location"),
+                locationLat = if (j.has("locationLat") && !j.isNull("locationLat")) j.getDouble("locationLat") else null,
+                locationLng = if (j.has("locationLng") && !j.isNull("locationLng")) j.getDouble("locationLng") else null,
+                scheduledAt = j.getString("scheduledAt"), fee = j.getLong("fee"), distanceKm = j.getDouble("distanceKm"),
                 requesterId = j.getString("requesterId"), requesterName = j.getString("requesterName"), helperId = j.stringOrNull("helperId"), helperName = j.stringOrNull("helperName"),
                 status = JobStatus.valueOf(j.getString("status")), proofUri = j.stringOrNull("proofUri"), proofName = j.stringOrNull("proofName"),
                 paymentProofUri = j.stringOrNull("paymentProofUri"), paymentProofName = j.stringOrNull("paymentProofName"),

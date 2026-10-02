@@ -1,6 +1,5 @@
 package com.pemmob.tulungin
 
-
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -45,6 +44,8 @@ import com.pemmob.tulungin.ui.user.UserViewModel
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.cloudinary.android.MediaManager
+import org.maplibre.android.MapLibre
 
 class MainActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
@@ -54,6 +55,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        runCatching {
+            MapLibre.getInstance(this)
+        }
+
+        runCatching {
+            MediaManager.init(this, mapOf(
+                "cloud_name" to "tulungin-cloud",
+                "api_key" to "123456789012345"
+            ))
+        }
 
         auth = FirebaseAuth.getInstance()
         firestore = FirebaseFirestore.getInstance()

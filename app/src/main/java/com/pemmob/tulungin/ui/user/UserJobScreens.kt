@@ -1,7 +1,9 @@
 package com.pemmob.tulungin.ui.user
 
+import android.Manifest
 import android.content.Intent
 import android.graphics.ImageDecoder
+import android.location.Location
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -24,9 +27,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.gms.location.LocationServices
 import com.pemmob.tulungin.data.user.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapView
+import java.util.Locale
 
 @Composable
 internal fun JobDetailScreen(
@@ -47,11 +57,74 @@ internal fun JobDetailScreen(
     val jobApplications = applications.filter { it.jobId == job.id }
     val isOngoing = job.status in listOf(JobStatus.ACCEPTED, JobStatus.IN_PROGRESS, JobStatus.AWAITING_CONFIRMATION)
 
+    val context = LocalContext.current
+    var helperLat by remember { mutableStateOf<Double?>(null) }
+    var helperLng by remember { mutableStateOf<Double?>(null) }
+    var distanceText by remember { mutableStateOf<String?>(null) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            runCatching {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        val hLat = location.latitude
+                        val hLng = location.longitude
+                        helperLat = hLat
+                        helperLng = hLng
+                        if (job.locationLat != null && job.locationLng != null) {
+                            val results = FloatArray(1)
+                            Location.distanceBetween(hLat, hLng, job.locationLat, job.locationLng, results)
+                            val distKm = results[0] / 1000.0
+                            distanceText = String.format(Locale.forLanguageTag("id-ID"), "%.1f km", distKm)
+                        }
+                    } else {
+                        locationError = "Gagal mendapatkan lokasi saat ini."
+                    }
+                }.addOnFailureListener {
+                    locationError = "Gagal mendapatkan lokasi: ${it.message}"
+                }
+            }
+        } else {
+            locationError = "Izin lokasi diperlukan untuk menghitung jarak."
+        }
+    }
+
     UserContent {
         UText(job.title, size = 16, weight = FontWeight.Bold, lineHeight = 22)
         StatusStrip(job.category)
         Notice("Detail Kebutuhan", job.description)
-        DetailCard("Lokasi", job.location, onMap)
+
+        if (job.locationLat != null && job.locationLng != null) {
+            MapLibreViewerView(job.locationLat, job.locationLng, helperLat, helperLng)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    DetailCard("Lokasi", job.location)
+                    if (distanceText != null) {
+                        UText("Jarak dari lokasi kamu: $distanceText", size = 14, weight = FontWeight.Bold, color = UserPrimary)
+                    } else if (locationError != null) {
+                        UText(locationError!!, size = 12, color = Color.Red)
+                    }
+                }
+                if (!isRequester) {
+                    Button(
+                        onClick = { locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
+                        colors = ButtonDefaults.buttonColors(containerColor = UserPrimary),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        UText("Lokasi Saya", color = Color.White)
+                    }
+                }
+            }
+        } else {
+            DetailCard("Lokasi", job.location, onMap)
+            Notice("Peta", "Lokasi peta belum tersedia untuk job ini.")
+        }
+
         DetailCard("Waktu", job.scheduledAt)
         DetailCard("Upah Jasa", rupiah(job.fee))
 
@@ -113,6 +186,63 @@ internal fun JobDetailScreen(
         }
     }
     if (confirm) ConfirmDialog("Lamar Job?", "Kamu akan melamar job ${job.title}. Lanjutkan?", "Lamar", { confirm = false }) { confirm = false; onApply() }
+}
+
+@Composable
+internal fun MapLibreViewerView(
+    jobLat: Double?,
+    jobLng: Double?,
+    helperLat: Double?,
+    helperLng: Double?
+) {
+    val context = LocalContext.current
+    val mapView = remember {
+        MapView(context).apply {
+            onCreate(null)
+        }
+    }
+
+    DisposableEffect(mapView) {
+        mapView.onStart()
+        mapView.onResume()
+        onDispose {
+            mapView.onPause()
+            mapView.onStop()
+            mapView.onDestroy()
+        }
+    }
+
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)),
+        factory = { mapView }
+    ) { view ->
+        view.getMapAsync { map ->
+            map.setStyle("https://tiles.openfreemap.org/styles/liberty") { _ ->
+                val targetLat = jobLat ?: -7.4214
+                val targetLng = jobLng ?: 109.2312
+                map.cameraPosition = CameraPosition.Builder()
+                    .target(LatLng(targetLat, targetLng))
+                    .zoom(14.0)
+                    .build()
+
+                map.clear()
+                if (jobLat != null && jobLng != null) {
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(LatLng(jobLat, jobLng))
+                            .title("Lokasi Job")
+                    )
+                }
+                if (helperLat != null && helperLng != null) {
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(LatLng(helperLat, helperLng))
+                            .title("Lokasi Kamu")
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

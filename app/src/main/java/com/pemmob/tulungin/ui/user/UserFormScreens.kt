@@ -2,15 +2,26 @@ package com.pemmob.tulungin.ui.user
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.pemmob.tulungin.data.user.*
+import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapView
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -21,16 +32,31 @@ internal fun CreateRequestScreen(busy: Boolean, onPublish: (JobDraft) -> Unit, o
     var category by rememberSaveable { mutableStateOf("") }
     var detail by rememberSaveable { mutableStateOf("") }
     var location by rememberSaveable { mutableStateOf("") }
+    var latLng by remember { mutableStateOf<LatLng?>(null) }
     var date by rememberSaveable { mutableStateOf("") }
     var fee by rememberSaveable { mutableStateOf("") }
     var chooseCategory by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val formatter = remember { DateTimeFormatter.ofPattern("d MMMM yyyy · HH.mm", Locale.forLanguageTag("id-ID")) }
+
     UserContent {
         UserField("Judul Permintaan", title, { title = it.take(100) }, "Contoh: Bantu pindahan kos")
         UserSelector("Kategori", category, "Pilih kategori bantuan") { chooseCategory = true }
         UserField("Detail Kebutuhan", detail, { detail = it.take(2000) }, "Jelaskan bantuan yang dibutuhkan", multiline = true)
-        UserField("Lokasi", location, { location = it.take(250) }, "Pilih lokasi kebutuhan")
+        UserField("Lokasi (Alamat)", location, { location = it.take(250) }, "Contoh: Jl. Soedirman No. 12, Cilacap")
+
+        UText("Pilih Titik Lokasi pada Peta", size = 14, weight = FontWeight.SemiBold, color = UserPrimary)
+        MapLibrePickerView(latLng) { lat, lng ->
+            latLng = LatLng(lat, lng)
+        }
+
+        val currentLatLng = latLng
+        if (currentLatLng != null) {
+            UText("Koordinat dipilih: %.4f, %.4f".format(currentLatLng.latitude, currentLatLng.longitude), size = 12, color = UserSecondary)
+        } else {
+            UText("Tap pada peta untuk menentukan pin lokasi job.", size = 12, color = UserSecondary)
+        }
+
         UserSelector("Waktu", date, "Pilih tanggal dan waktu") {
             val now = LocalDateTime.now()
             DatePickerDialog(context, { _, year, month, day ->
@@ -43,11 +69,74 @@ internal fun CreateRequestScreen(busy: Boolean, onPublish: (JobDraft) -> Unit, o
         UserField("Upah Jasa", fee, { fee = it.filter(Char::isDigit).take(9) }, "Rp0", keyboard = KeyboardType.Number)
         UserButton("Terbitkan Permintaan", enabled = !busy) {
             val scheduled = runCatching { LocalDateTime.parse(date, formatter) }.getOrNull()
-            if (scheduled == null || !scheduled.isAfter(LocalDateTime.now())) onError("Pilih tanggal dan waktu yang akan datang.")
-            else onPublish(JobDraft(title, category, detail, location, date, fee.toLongOrNull() ?: 0))
+            if (scheduled == null || !scheduled.isAfter(LocalDateTime.now())) {
+                onError("Pilih tanggal dan waktu yang akan datang.")
+            } else if (location.isBlank()) {
+                onError("Lengkapi alamat atau pilih lokasi pada peta.")
+            } else {
+                onPublish(JobDraft(title, category, detail, location, date, fee.toLongOrNull() ?: 0, latLng?.latitude, latLng?.longitude))
+            }
         }
     }
     if (chooseCategory) ChoiceDialog("Kategori Bantuan", JobRules.categories, { chooseCategory = false }) { category = it }
+}
+
+@Composable
+internal fun MapLibrePickerView(
+    selectedLatLng: LatLng?,
+    onLocationSelected: (Double, Double) -> Unit
+) {
+    val context = LocalContext.current
+    val mapView = remember {
+        MapView(context).apply {
+            onCreate(null)
+        }
+    }
+
+    DisposableEffect(mapView) {
+        mapView.onStart()
+        mapView.onResume()
+        onDispose {
+            mapView.onPause()
+            mapView.onStop()
+            mapView.onDestroy()
+        }
+    }
+
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)),
+        factory = { mapView }
+    ) { view ->
+        view.getMapAsync { map ->
+            map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
+                val center = selectedLatLng ?: LatLng(-7.4214, 109.2312)
+                map.cameraPosition = CameraPosition.Builder()
+                    .target(center)
+                    .zoom(14.0)
+                    .build()
+
+                if (selectedLatLng != null) {
+                    map.clear()
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(selectedLatLng)
+                            .title("Lokasi Job")
+                    )
+                }
+
+                map.addOnMapClickListener { point ->
+                    map.clear()
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(point)
+                            .title("Lokasi Job")
+                    )
+                    onLocationSelected(point.latitude, point.longitude)
+                    true
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -75,7 +164,7 @@ internal fun ReviewScreen(job: UserJob, busy: Boolean, onSubmit: (Int, String) -
             UText("Bagaimana pengalamanmu?", size = 15, weight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 (1..5).forEach { number ->
-                    androidx.compose.material3.TextButton(onClick = { rating = number }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) {
+                    TextButton(onClick = { rating = number }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) {
                         UText(if (number <= rating) "★" else "☆", size = 32, lineHeight = 40, color = UserPrimary)
                     }
                 }

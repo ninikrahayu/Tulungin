@@ -41,7 +41,9 @@ data class UserJob(
     val rating: Int = 0,
     val review: String = "",
     val paymentMethod: String = "",
-    val paid: Boolean = false
+    val paid: Boolean = false,
+    val locationLat: Double? = null,
+    val locationLng: Double? = null
 )
 
 data class UserApplication(
@@ -59,7 +61,9 @@ data class JobDraft(
     val description: String,
     val location: String,
     val scheduledAt: String,
-    val fee: Long
+    val fee: Long,
+    val locationLat: Double? = null,
+    val locationLng: Double? = null
 )
 
 data class ChatMessage(val id: String, val text: String, val outgoing: Boolean)
