@@ -33,7 +33,7 @@ internal fun HomeScreen(state: UserSnapshot, onCreate: () -> Unit, onBrowse: () 
         }
         Spacer(Modifier.height(12.dp))
         val available = state.jobs.filter {
-            it.status == JobStatus.AVAILABLE
+            it.status == JobStatus.AVAILABLE && state.applications.none { app -> app.jobId == it.id && app.applicantId == state.profile.id && app.status == "accepted" }
         }.take(2)
         if (available.isEmpty()) Notice("Belum ada job", "Coba lagi nanti atau buat permintaan bantuanmu.")
         available.forEachIndexed { index, job ->
@@ -43,7 +43,13 @@ internal fun HomeScreen(state: UserSnapshot, onCreate: () -> Unit, onBrowse: () 
         Spacer(Modifier.height(52.dp))
         UText("Aktivitas Saya", size = 18, weight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
-        val active = state.jobs.filter { (it.requesterId == state.profile.id || it.helperId == state.profile.id) && it.status !in listOf(JobStatus.COMPLETED, JobStatus.CANCELLED) }
+        val active = state.jobs.filter { job ->
+            val isRequester = job.requesterId == state.profile.id
+            val isAcceptedHelper = state.applications.any { it.jobId == job.id && it.applicantId == state.profile.id && it.status == "accepted" }
+            val isHelper = job.helperId == state.profile.id || isAcceptedHelper
+            val isOngoingStatus = job.status !in listOf(JobStatus.COMPLETED, JobStatus.CANCELLED)
+            (isRequester && isOngoingStatus) || isAcceptedHelper || (isHelper && isOngoingStatus)
+        }
         if (active.isEmpty()) Notice("Belum ada aktivitas", "Job yang kamu buat atau ambil akan tampil di sini.")
         active.forEach { job ->
             UserCard(onClick = { onJob(job) }) {
@@ -79,6 +85,7 @@ internal fun BrowseJobsScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
     val maximumDistance = when (distance) { "Maksimal 2 km" -> 2.0; "Maksimal 5 km" -> 5.0; "Maksimal 10 km" -> 10.0; else -> Double.MAX_VALUE }
     val jobs = state.jobs.filter {
         it.status == JobStatus.AVAILABLE &&
+                state.applications.none { app -> app.jobId == it.id && app.applicantId == state.profile.id && app.status == "accepted" } &&
                 (query.isBlank() || "${it.title} ${it.category} ${it.location}".contains(query.trim(), true)) &&
                 (category == "Semua kategori" || it.category == category) &&
                 it.distanceKm <= maximumDistance
@@ -113,9 +120,12 @@ internal fun BrowseJobsScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
 internal fun HistoryScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
     UserContent {
         UText("Riwayat & Job Berlangsung", size = 16, weight = FontWeight.Bold, lineHeight = 22)
-        val jobs = state.jobs.filter {
-            (it.requesterId == state.profile.id || it.helperId == state.profile.id) &&
-            it.status in listOf(JobStatus.IN_PROGRESS, JobStatus.ACCEPTED, JobStatus.AWAITING_CONFIRMATION, JobStatus.COMPLETED, JobStatus.CANCELLED)
+        val jobs = state.jobs.filter { job ->
+            val isRequester = job.requesterId == state.profile.id
+            val isAcceptedHelper = state.applications.any { it.jobId == job.id && it.applicantId == state.profile.id && it.status == "accepted" }
+            val isHelper = job.helperId == state.profile.id || isAcceptedHelper
+            val isHistoryStatus = job.status in listOf(JobStatus.IN_PROGRESS, JobStatus.ACCEPTED, JobStatus.AWAITING_CONFIRMATION, JobStatus.COMPLETED, JobStatus.CANCELLED)
+            (isRequester && isHistoryStatus) || isAcceptedHelper || (isHelper && isHistoryStatus)
         }
         if (jobs.isEmpty()) Notice("Belum ada riwayat", "Pekerjaan yang sedang dikerjakan, selesai, atau dibatalkan akan tampil di sini.")
         jobs.forEach { job ->

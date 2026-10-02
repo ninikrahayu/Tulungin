@@ -19,6 +19,8 @@ internal object SnapshotCodec {
             put("requesterId", job.requesterId); put("requesterName", job.requesterName)
             put("helperId", job.helperId ?: JSONObject.NULL); put("helperName", job.helperName ?: JSONObject.NULL)
             put("status", job.status.name); put("proofUri", job.proofUri ?: JSONObject.NULL); put("proofName", job.proofName ?: JSONObject.NULL)
+            put("paymentProofUri", job.paymentProofUri ?: JSONObject.NULL); put("paymentProofName", job.paymentProofName ?: JSONObject.NULL)
+            put("helperConfirmed", job.helperConfirmed); put("requesterConfirmed", job.requesterConfirmed)
             put("rating", job.rating); put("review", job.review); put("paymentMethod", job.paymentMethod); put("paid", job.paid)
         } }))
         put("applications", JSONArray(state.applications.map { app -> JSONObject().apply {
@@ -45,6 +47,8 @@ internal object SnapshotCodec {
                 location = j.getString("location"), scheduledAt = j.getString("scheduledAt"), fee = j.getLong("fee"), distanceKm = j.getDouble("distanceKm"),
                 requesterId = j.getString("requesterId"), requesterName = j.getString("requesterName"), helperId = j.stringOrNull("helperId"), helperName = j.stringOrNull("helperName"),
                 status = JobStatus.valueOf(j.getString("status")), proofUri = j.stringOrNull("proofUri"), proofName = j.stringOrNull("proofName"),
+                paymentProofUri = j.stringOrNull("paymentProofUri"), paymentProofName = j.stringOrNull("paymentProofName"),
+                helperConfirmed = j.optBoolean("helperConfirmed", false), requesterConfirmed = j.optBoolean("requesterConfirmed", false),
                 rating = j.getInt("rating"), review = j.getString("review"), paymentMethod = j.getString("paymentMethod"), paid = j.getBoolean("paid")
             ) },
             applications = root.optJSONArray("applications")?.mapObjects { a -> UserApplication(

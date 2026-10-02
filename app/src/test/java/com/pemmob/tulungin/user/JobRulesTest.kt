@@ -9,13 +9,18 @@ class JobRulesTest {
     private val job = DemoFixtures.initial().jobs.first()
 
     @Test
-    fun helperCompletesWorkAndRequesterConfirms() {
+    fun helperSubmitsWorkProofRequesterSubmitsPaymentProofAndBothConfirm() {
         val accepted = JobRules.accept(job, user)
         val started = JobRules.start(accepted, user.id)
-        val submitted = JobRules.submitProof(started, user.id, "content://proof/1", "photo.jpg")
-        val completed = JobRules.complete(submitted, job.requesterId)
-        assertEquals(JobStatus.COMPLETED, completed.status)
-        assertEquals("content://proof/1", completed.proofUri)
+        val workSubmitted = JobRules.submitProof(started, user.id, "content://proof/1", "photo.jpg")
+        val paymentSubmitted = JobRules.submitPaymentProof(workSubmitted, job.requesterId, "content://payment/1", "payment.jpg")
+        val helperConfirmed = JobRules.confirmJob(paymentSubmitted, user.id)
+        val fullyCompleted = JobRules.confirmJob(helperConfirmed, job.requesterId)
+        assertEquals(JobStatus.COMPLETED, fullyCompleted.status)
+        assertTrue(fullyCompleted.helperConfirmed)
+        assertTrue(fullyCompleted.requesterConfirmed)
+        assertEquals("content://proof/1", fullyCompleted.proofUri)
+        assertEquals("content://payment/1", fullyCompleted.paymentProofUri)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -25,8 +30,11 @@ class JobRulesTest {
     fun jobCannotBeAcceptedTwice() { JobRules.accept(JobRules.accept(job, user), user.copy(id = "other")) }
 
     @Test(expected = IllegalArgumentException::class)
-    fun helperCannotConfirmOwnProof() {
-        JobRules.complete(job.copy(helperId = user.id, status = JobStatus.AWAITING_CONFIRMATION, proofUri = "content://proof/1"), user.id)
+    fun helperCannotConfirmOwnProofWithoutRequesterPaymentProof() {
+        val accepted = JobRules.accept(job, user)
+        val started = JobRules.start(accepted, user.id)
+        val submitted = JobRules.submitProof(started, user.id, "content://proof/1", "photo.jpg")
+        JobRules.confirmJob(submitted, user.id)
     }
 
     @Test(expected = IllegalArgumentException::class)

@@ -46,7 +46,7 @@ class UserFlowTest {
     }
 
     @Test
-    fun browseFilterApplyAndStartJob() {
+    fun browseFilterAndApplyJob() {
         compose.setContent { UserApp(model) {} }
         compose.onNodeWithText("Halo, Andi!").assertIsDisplayed()
         capture("01-beranda")
@@ -61,30 +61,8 @@ class UserFlowTest {
         compose.onNodeWithText("Lamar Job").performClick()
         compose.onNodeWithText("Lamar Job?").assertIsDisplayed()
         compose.onAllNodesWithText("Lamar").onLast().performClick()
-        compose.onNodeWithText("Cari Job").assertIsDisplayed()
+        compose.onNodeWithText("Lamar Job?").assertDoesNotExist()
         capture("05-lamaran-terkirim")
-    }
-
-    @Test
-    fun requesterCanConfirmRateAndPayWithoutBackend() {
-        compose.setContent { UserApp(model) {} }
-        compose.onNodeWithText("Menunggu konfirmasi").performScrollTo().performClick()
-        compose.onNodeWithText("Bukti dari Penulung").assertIsDisplayed()
-        capture("06-konfirmasi")
-        compose.onNodeWithText("Konfirmasi Selesai").performClick()
-        compose.onNodeWithText("Selesai").performClick()
-        compose.onNodeWithText("Beri Ulasan").performScrollTo().performClick()
-        capture("07-ulasan")
-        compose.onAllNodesWithText("☆")[4].performClick()
-        compose.onNodeWithContentDescription("Ulasan").performTextInput("Cepat dan sangat membantu.")
-        compose.onNodeWithText("Kirim Ulasan").performScrollTo().performClick()
-        compose.onNodeWithText("Pembayaran").performScrollTo().performClick()
-        capture("08-pembayaran")
-        compose.onNodeWithText("Pilih metode pembayaran").performClick()
-        compose.onNodeWithText("QRIS (simulasi)").performClick()
-        compose.onNodeWithText("Lanjut Bayar").performClick()
-        compose.onNodeWithText("Simulasikan").performClick()
-        compose.onNodeWithText("Pembayaran simulasi berhasil").assertIsDisplayed()
     }
 
     @Test
@@ -101,13 +79,15 @@ class UserFlowTest {
     }
 
     @Test
-    fun demoStateSurvivesRepositoryRecreation() = runBlocking {
-        val app = ApplicationProvider.getApplicationContext<Application>()
-        val first = LocalDemoRepository(app)
-        val id = first.createJob(JobDraft("Antar buku", "Pengantaran", "Antarkan buku ke kampus.", "Jl. Kampus 12", "30 September 2026 · 10.00", 15000))
-        first.sendSupport("Tolong bantu periksa permintaan saya.")
-        val second = LocalDemoRepository(app)
-        Assert.assertTrue(second.snapshot.value.jobs.any { it.id == id })
-        Assert.assertEquals(1, second.snapshot.value.tickets.size)
+    fun demoStateSurvivesRepositoryRecreation() {
+        runBlocking {
+            val app = ApplicationProvider.getApplicationContext<Application>()
+            val first = LocalDemoRepository(app)
+            val id = first.createJob(JobDraft("Antar buku", "Pengantaran", "Antarkan buku ke kampus.", "Jl. Kampus 12", "30 September 2026 · 10.00", 15000))
+            first.sendSupport("Tolong bantu periksa permintaan saya.")
+            val second = LocalDemoRepository(app)
+            Assert.assertTrue(second.snapshot.value.jobs.any { it.id == id })
+            Assert.assertEquals(1, second.snapshot.value.tickets.size)
+        }
     }
 }

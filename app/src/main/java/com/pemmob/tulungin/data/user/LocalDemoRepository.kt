@@ -12,6 +12,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.tasks.await
 
 class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
     private val appContext = context.applicationContext
@@ -45,6 +46,19 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
     private var jobsListener: ListenerRegistration? = null
     private var applicationsListener: ListenerRegistration? = null
 
+    private fun parseJobStatus(raw: String?): JobStatus {
+        if (raw == null) return JobStatus.AVAILABLE
+        return when (raw.lowercase()) {
+            "open", "available" -> JobStatus.AVAILABLE
+            "accepted" -> JobStatus.ACCEPTED
+            "in_progress", "inprogress" -> JobStatus.IN_PROGRESS
+            "awaiting_confirmation", "awaiting" -> JobStatus.AWAITING_CONFIRMATION
+            "completed" -> JobStatus.COMPLETED
+            "cancelled" -> JobStatus.CANCELLED
+            else -> runCatching { JobStatus.valueOf(raw.uppercase()) }.getOrDefault(JobStatus.AVAILABLE)
+        }
+    }
+
     init {
         runCatching {
             jobsListener = firestore.collection("jobs")
@@ -66,11 +80,13 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
                                 requesterName = document.getString("requesterName") ?: "",
                                 helperId = document.getString("helperId"),
                                 helperName = document.getString("helperName"),
-                                status = JobStatus.valueOf(
-                                    document.getString("status") ?: "AVAILABLE"
-                                ),
+                                status = parseJobStatus(document.getString("status")),
                                 proofUri = document.getString("proofUri"),
                                 proofName = document.getString("proofName"),
+                                paymentProofUri = document.getString("paymentProofUri"),
+                                paymentProofName = document.getString("paymentProofName"),
+                                helperConfirmed = document.getBoolean("helperConfirmed") ?: false,
+                                requesterConfirmed = document.getBoolean("requesterConfirmed") ?: false,
                                 rating = (document.getLong("rating") ?: 0L).toInt(),
                                 review = document.getString("review") ?: "",
                                 paymentMethod = document.getString("paymentMethod") ?: "",
@@ -137,12 +153,16 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
                     "status" to updatedJob.status.name,
                     "proofUri" to updatedJob.proofUri,
                     "proofName" to updatedJob.proofName,
+                    "paymentProofUri" to updatedJob.paymentProofUri,
+                    "paymentProofName" to updatedJob.paymentProofName,
+                    "helperConfirmed" to updatedJob.helperConfirmed,
+                    "requesterConfirmed" to updatedJob.requesterConfirmed,
                     "rating" to updatedJob.rating,
                     "review" to updatedJob.review,
                     "paymentMethod" to updatedJob.paymentMethod,
                     "paid" to updatedJob.paid
                 )
-            )
+            ).await()
         }
 
         save(current.copy(jobs = updatedJobs))
@@ -195,6 +215,10 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
             "status" to "AVAILABLE",
             "proofUri" to null,
             "proofName" to null,
+            "paymentProofUri" to null,
+            "paymentProofName" to null,
+            "helperConfirmed" to false,
+            "requesterConfirmed" to false,
             "rating" to 0,
             "review" to "",
             "paymentMethod" to "",
@@ -203,7 +227,7 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         )
 
         runCatching {
-            firestore.collection("jobs").document(id).set(jobData)
+            firestore.collection("jobs").document(id).set(jobData).await()
         }
 
         val updatedProfile = current.profile.copy(
@@ -249,7 +273,7 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         )
 
         runCatching {
-            firestore.collection("applications").document(appId).set(appData)
+            firestore.collection("applications").document(appId).set(appData).await()
         }
 
         save(current.copy(applications = current.applications + app))
@@ -273,21 +297,23 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
                     "helperName" to targetApp.applicantName,
                     "status" to JobStatus.IN_PROGRESS.name
                 )
-            )
+            ).await()
         }
 
         val batch = runCatching { firestore.batch() }.getOrNull()
         if (batch != null) {
             batch.update(firestore.collection("applications").document(targetApp.id), "status", "accepted")
+            current.applications.filter { it.jobId == jobId && it.id != applicationId && it.status == "pending" }.forEach { app ->
+                batch.update(firestore.collection("applications").document(app.id), "status", "rejected")
+            }
+            runCatching { batch.commit().await() }
         }
 
         val updatedApps = current.applications.map { app ->
             if (app.jobId == jobId) {
                 if (app.id == applicationId) {
-                    batch?.update(firestore.collection("applications").document(app.id), "status", "accepted")
                     app.copy(status = "accepted")
                 } else if (app.status == "pending") {
-                    batch?.update(firestore.collection("applications").document(app.id), "status", "rejected")
                     app.copy(status = "rejected")
                 } else {
                     app
@@ -296,7 +322,6 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
                 app
             }
         }
-        runCatching { batch?.commit() }
 
         val updatedJobs = current.jobs.map { j ->
             if (j.id == jobId) {
@@ -312,7 +337,8 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
     override suspend fun acceptJob(id: String) = changeJob(id) { j, p -> JobRules.accept(j, p) }
     override suspend fun startJob(id: String) = changeJob(id) { j, p -> JobRules.start(j, p.id) }
     override suspend fun submitProof(id: String, uri: String, name: String) = changeJob(id) { j, p -> JobRules.submitProof(j, p.id, uri, name) }
-    override suspend fun confirmCompletion(id: String) = changeJob(id) { j, p -> JobRules.complete(j, p.id) }
+    override suspend fun submitPaymentProof(id: String, uri: String, name: String) = changeJob(id) { j, p -> JobRules.submitPaymentProof(j, p.id, uri, name) }
+    override suspend fun confirmCompletion(id: String) = changeJob(id) { j, p -> JobRules.confirmJob(j, p.id) }
     override suspend fun submitReview(id: String, rating: Int, text: String) = changeJob(id) { j, p -> JobRules.review(j, p.id, rating, text) }
     override suspend fun pay(id: String, method: String) = changeJob(id) { j, p -> JobRules.pay(j, p.id, method) }
 
@@ -345,7 +371,6 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
     }
 
     override suspend fun sendSupport(message: String): String = mutex.withLock {
-        require(message.trim().length >= 10 && message.length <= 2000) { "Pesan bantuan harus 10–2.000 karakter." }
         val current = snapshot.value
         val id = "DEMO-${current.tickets.size + 1}"
         save(current.copy(tickets = current.tickets + SupportTicket(id, message.trim())))

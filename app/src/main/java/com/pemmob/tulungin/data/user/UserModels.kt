@@ -34,6 +34,10 @@ data class UserJob(
     val status: JobStatus = JobStatus.AVAILABLE,
     val proofUri: String? = null,
     val proofName: String? = null,
+    val paymentProofUri: String? = null,
+    val paymentProofName: String? = null,
+    val helperConfirmed: Boolean = false,
+    val requesterConfirmed: Boolean = false,
     val rating: Int = 0,
     val review: String = "",
     val paymentMethod: String = "",
@@ -85,13 +89,35 @@ object JobRules {
     fun submitProof(job: UserJob, userId: String, uri: String, name: String): UserJob {
         require(job.helperId == userId && job.status == JobStatus.IN_PROGRESS) { "Mulai pekerjaan sebelum mengirim bukti." }
         require(uri.isNotBlank() && name.isNotBlank()) { "Pilih foto atau file bukti terlebih dahulu." }
-        return job.copy(proofUri = uri, proofName = name, status = JobStatus.AWAITING_CONFIRMATION)
+        return job.copy(proofUri = uri, proofName = name)
+    }
+
+    fun submitPaymentProof(job: UserJob, userId: String, uri: String, name: String): UserJob {
+        require(job.requesterId == userId) { "Hanya peminta yang dapat mengirim bukti pembayaran." }
+        require(!job.proofUri.isNullOrBlank()) { "Helper harus mengirim bukti pekerjaan terlebih dahulu." }
+        require(uri.isNotBlank() && name.isNotBlank()) { "Pilih foto atau file bukti pembayaran terlebih dahulu." }
+        return job.copy(paymentProofUri = uri, paymentProofName = name, status = JobStatus.AWAITING_CONFIRMATION)
+    }
+
+    fun confirmJob(job: UserJob, userId: String): UserJob {
+        require(!job.proofUri.isNullOrBlank() && !job.paymentProofUri.isNullOrBlank()) { "Kedua bukti (pekerjaan dan pembayaran) harus dikirim terlebih dahulu." }
+        val isHelper = job.helperId == userId
+        val isRequester = job.requesterId == userId
+        require(isHelper || isRequester) { "Hanya pihak yang terlibat yang dapat mengonfirmasi." }
+
+        val newHelperConfirmed = if (isHelper) true else job.helperConfirmed
+        val newRequesterConfirmed = if (isRequester) true else job.requesterConfirmed
+
+        val newStatus = if (newHelperConfirmed && newRequesterConfirmed) JobStatus.COMPLETED else job.status
+        return job.copy(
+            helperConfirmed = newHelperConfirmed,
+            requesterConfirmed = newRequesterConfirmed,
+            status = newStatus
+        )
     }
 
     fun complete(job: UserJob, userId: String): UserJob {
-        require(job.requesterId == userId && job.status == JobStatus.AWAITING_CONFIRMATION) { "Hanya peminta dapat mengonfirmasi bukti." }
-        require(!job.proofUri.isNullOrBlank()) { "Bukti penyelesaian belum tersedia." }
-        return job.copy(status = JobStatus.COMPLETED)
+        return confirmJob(job, userId)
     }
 
     fun review(job: UserJob, userId: String, rating: Int, text: String): UserJob {

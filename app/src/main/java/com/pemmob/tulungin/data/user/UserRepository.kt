@@ -10,6 +10,7 @@ interface UserRepository {
     suspend fun acceptJob(id: String)
     suspend fun startJob(id: String)
     suspend fun submitProof(id: String, uri: String, name: String)
+    suspend fun submitPaymentProof(id: String, uri: String, name: String)
     suspend fun confirmCompletion(id: String)
     suspend fun submitReview(id: String, rating: Int, text: String)
     suspend fun pay(id: String, method: String)
