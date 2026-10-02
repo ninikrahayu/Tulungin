@@ -35,13 +35,23 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
         fun tab(route: String) { stack = listOf(route) }
         fun back() { if (stack.size > 1) stack = stack.dropLast(1) else tab("home") }
         fun openJob(value: UserJob) {
+            val isAcceptedHelperForMe = state.applications.any { it.jobId == value.id && it.applicantId == state.profile.id && it.status == "accepted" }
             val route = when {
                 value.status in listOf(JobStatus.COMPLETED, JobStatus.CANCELLED) -> "history_detail"
                 value.requesterId == state.profile.id && value.status == JobStatus.AWAITING_CONFIRMATION -> "confirm"
-                value.status == JobStatus.AVAILABLE -> "detail"
+                value.status == JobStatus.AVAILABLE && !isAcceptedHelperForMe && value.helperId != state.profile.id -> "detail"
                 else -> "active"
             }
             navigate("$route/${value.id}")
+        }
+
+        fun uploadAndSubmitProof(jobId: String, uriString: String, name: String, isWorkProof: Boolean, onSuccessMessage: String) {
+            // Cloudinary Object Storage Integration Point:
+            // MediaManager.get().upload(Uri.parse(uriString)).unsigned("tulungin_preset").callback(...).dispatch()
+            viewModel.perform(onSuccessMessage) {
+                if (isWorkProof) submitProof(jobId, uriString, name)
+                else submitPaymentProof(jobId, uriString, name)
+            }
         }
 
         BackHandler(enabled = current != "home") { back() }
@@ -54,7 +64,7 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
         val title = when (screen) {
             "jobs" -> "Job Available"; "history" -> "Histori"; "profile" -> "Profil"
             "create" -> "Buat Permintaan"; "detail" -> "Detail Job"; "active" -> if (job?.requesterId == state.profile.id) "Detail Permintaan" else "Job Aktif"
-            "proof" -> "Bukti Pekerjaan"; "payment_proof" -> "Bukti Pembayaran"; "confirm" -> "Konfirmasi Selesai"; "review" -> "Beri Ulasan"
+            "completion" -> "Konfirmasi Penyelesaian"; "review" -> "Beri Ulasan"
             "history_detail" -> "Detail Histori"; "chats" -> "Chat"; "chat" -> chat?.name ?: if (job?.requesterId == state.profile.id) job?.helperName ?: "Penulung" else job?.requesterName ?: "Chat"
             "map" -> "Lokasi"; "edit_profile" -> "Edit Profil"; "payment" -> "Pembayaran"
             "support" -> "Bantuan"; "demo" -> "Mode Simulasi"; else -> "Tulungin"
@@ -80,15 +90,13 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
                         else -> {
                             if (job == null) UserContent { Notice("Job tidak ditemukan", "Job mungkin sudah direset. Kembali ke Beranda untuk melanjutkan."); UserButton("Ke Beranda") { tab("home") } }
                             else when (screen) {
-                                "detail" -> JobDetailScreen(job, state.profile, state.applications, busy, { viewModel.perform("Lamaran berhasil dikirim.") { applyJob(job.id); back() } }, { appId -> viewModel.perform("Penulung berhasil dipilih.") { selectApplication(job.id, appId); stack = stack.dropLast(1) + "active/${job.id}" } }, { navigate("map/${job.id}") })
-                                "active" -> ActiveJobScreen(job, state.profile, busy, { statusDialog = true }, { navigate("chat/${job.id}") }, { navigate("proof/${job.id}") }, { navigate("payment_proof/${job.id}") }, { navigate("confirm/${job.id}") }, { navigate("map/${job.id}") }, { viewModel.perform("Aksi lawan transaksi disimulasikan.") {
+                                "detail" -> JobDetailScreen(job, state.profile, state.applications, busy, { viewModel.perform("Lamaran berhasil dikirim.") { applyJob(job.id); back() } }, { appId -> viewModel.perform("Penulung berhasil dipilih.") { selectApplication(job.id, appId); stack = stack.dropLast(1) + "active/${job.id}" } }, { navigate("completion/${job.id}") }, { navigate("chat/${job.id}") }, { navigate("map/${job.id}") })
+                                "active" -> ActiveJobScreen(job, state.profile, busy, { statusDialog = true }, { navigate("chat/${job.id}") }, { navigate("completion/${job.id}") }, { navigate("map/${job.id}") }, { viewModel.perform("Aksi lawan transaksi disimulasikan.") {
                                     (this as? DemoControls)?.simulateCounterparty(job.id) ?: error("Mode simulasi tidak tersedia.")
                                     val updated = this.snapshot.value.jobs.first { it.id == job.id }
                                     if (updated.status == JobStatus.COMPLETED) stack = stack.dropLast(1) + "history_detail/${job.id}"
                                 } })
-                                "proof" -> ProofScreen(job, busy, { uri, name -> viewModel.perform("Bukti pekerjaan tersimpan.") { submitProof(job.id, uri, name); back() } }, viewModel::notify)
-                                "payment_proof" -> ProofScreen(job, busy, { uri, name -> viewModel.perform("Bukti pembayaran tersimpan.") { submitPaymentProof(job.id, uri, name); back() } }, viewModel::notify)
-                                "confirm" -> ConfirmCompletionScreen(job, state.profile, busy, { viewModel.perform("Konfirmasi berhasil.") { confirmCompletion(job.id); val updated = snapshot.value.jobs.firstOrNull { it.id == job.id }; if (updated?.status == JobStatus.COMPLETED) stack = stack.dropLast(1) + "history_detail/${job.id}" else back() } }, viewModel::notify)
+                                "completion" -> JobCompletionScreen(job, state.profile, busy, { uri, name -> uploadAndSubmitProof(job.id, uri, name, true, "Bukti pekerjaan berhasil dikirim ke Cloudinary.") }, { uri, name -> uploadAndSubmitProof(job.id, uri, name, false, "Bukti pembayaran berhasil dikirim ke Cloudinary.") }, { viewModel.perform("Konfirmasi selesai berhasil disimpan.") { confirmCompletion(job.id); val updated = snapshot.value.jobs.firstOrNull { it.id == job.id }; if (updated?.status == JobStatus.COMPLETED) stack = stack.dropLast(1) + "history_detail/${job.id}" else back() } }, viewModel::notify)
                                 "history_detail" -> HistoryDetailScreen(job, state.profile, { navigate("review/${job.id}") }, { navigate("payment/${job.id}") }, { navigate("map/${job.id}") })
                                 "review" -> ReviewScreen(job, busy) { rating, text -> viewModel.perform("Ulasan berhasil disimpan.") { submitReview(job.id, rating, text); back() } }
                                 "payment" -> PaymentScreen(job, busy) { method -> viewModel.perform("Pembayaran simulasi berhasil; tidak ada uang dipindahkan.") { pay(job.id, method) } }
@@ -102,7 +110,7 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
         }
         if (logout) ConfirmDialog("Keluar dari demo?", "Data simulasi tetap tersimpan di perangkat ini.", "Keluar", { logout = false }, onLogout)
         if (statusDialog && job != null) ChoiceDialog("Perbarui Status", if (job.status == JobStatus.ACCEPTED) listOf("Mulai pekerjaan") else listOf("Kirim bukti pekerjaan"), { statusDialog = false }) {
-            if (job.status == JobStatus.ACCEPTED) viewModel.perform("Status diperbarui: sedang dikerjakan.") { startJob(job.id) } else navigate("proof/${job.id}")
+            if (job.status == JobStatus.ACCEPTED) viewModel.perform("Status diperbarui: sedang dikerjakan.") { startJob(job.id) } else navigate("completion/${job.id}")
         }
     }
 }

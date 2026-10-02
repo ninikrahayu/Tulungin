@@ -36,12 +36,16 @@ internal fun JobDetailScreen(
     busy: Boolean,
     onApply: () -> Unit,
     onSelectApp: (String) -> Unit,
+    onCompleteFlow: () -> Unit,
+    onChat: () -> Unit,
     onMap: () -> Unit
 ) {
     var confirm by rememberSaveable(job.id) { mutableStateOf(false) }
     val isRequester = job.requesterId == profile.id
     val myApp = applications.firstOrNull { it.jobId == job.id && it.applicantId == profile.id }
+    val isAcceptedHelper = myApp?.status == "accepted" || job.helperId == profile.id
     val jobApplications = applications.filter { it.jobId == job.id }
+    val isOngoing = job.status in listOf(JobStatus.ACCEPTED, JobStatus.IN_PROGRESS, JobStatus.AWAITING_CONFIRMATION)
 
     UserContent {
         UText(job.title, size = 16, weight = FontWeight.Bold, lineHeight = 22)
@@ -80,14 +84,30 @@ internal fun JobDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
+            if (job.helperId != null) {
+                Spacer(Modifier.height(8.dp))
+                UserButton("Buka Chat", secondary = true, onClick = onChat)
+                if (isOngoing) {
+                    Spacer(Modifier.height(8.dp))
+                    UserButton("Selesai", onClick = onCompleteFlow)
+                }
+            }
+        } else if (isAcceptedHelper) {
+            Notice("Status Lamaran", "Lamaranmu DITERIMA! Job sedang berlangsung.")
+            Spacer(Modifier.height(8.dp))
+            UserButton("Buka Chat", secondary = true, onClick = onChat)
+            if (isOngoing) {
+                Spacer(Modifier.height(8.dp))
+                UserButton("Selesai", onClick = onCompleteFlow)
+            }
         } else {
             if (myApp == null) {
                 UserButton("Lamar Job", enabled = !busy && job.status == JobStatus.AVAILABLE && job.helperId == null) { confirm = true }
             } else {
                 when (myApp.status) {
                     "pending" -> Notice("Status Lamaran", "Lamaranmu sudah dikirim (Pending). Menunggu pilihan dari peminta job.")
-                    "accepted" -> Notice("Status Lamaran", "Lamaranmu DITERIMA! Job sedang berlangsung.")
                     "rejected" -> Notice("Status Lamaran", "Lamaranmu ditolak oleh peminta.")
+                    else -> {}
                 }
             }
         }
@@ -102,16 +122,13 @@ internal fun ActiveJobScreen(
     busy: Boolean,
     onStart: () -> Unit,
     onChat: () -> Unit,
-    onProof: () -> Unit,
-    onPaymentProof: () -> Unit,
-    onConfirm: () -> Unit,
+    onCompleteFlow: () -> Unit,
     onMap: () -> Unit,
     onDemo: () -> Unit
 ) {
     val requester = job.requesterId == profile.id
     val helper = job.helperId == profile.id
-    val hasWorkProof = !job.proofUri.isNullOrBlank()
-    val hasPaymentProof = !job.paymentProofUri.isNullOrBlank()
+    val isOngoing = job.status in listOf(JobStatus.ACCEPTED, JobStatus.IN_PROGRESS, JobStatus.AWAITING_CONFIRMATION)
 
     UserContent {
         UText(job.title, size = 16, weight = FontWeight.Bold, lineHeight = 22)
@@ -124,30 +141,15 @@ internal fun ActiveJobScreen(
         if (helper) {
             UserButton("Perbarui Status", enabled = !busy && job.status in listOf(JobStatus.ACCEPTED, JobStatus.IN_PROGRESS), onClick = onStart)
             UserButton("Buka Chat", secondary = true, onClick = onChat)
-            UserButton(if (hasWorkProof) "Ganti Bukti Pekerjaan" else "Kirim Bukti Pekerjaan", enabled = !busy && job.status == JobStatus.IN_PROGRESS, onClick = onProof)
-
-            if (hasWorkProof && !hasPaymentProof) {
-                Notice("Menunggu Peminta", "Bukti pekerjaan terkirim. Menunggu peminta mengirim bukti pembayaran.")
-            } else if (hasWorkProof && hasPaymentProof) {
-                if (!job.helperConfirmed) {
-                    UserButton("Konfirmasi Selesai", onClick = onConfirm)
-                } else {
-                    Notice("Menunggu Peminta", "Kamu sudah menekan konfirmasi. Menunggu konfirmasi peminta.")
-                }
+            if (isOngoing) {
+                Spacer(Modifier.height(8.dp))
+                UserButton("Selesai", onClick = onCompleteFlow)
             }
         } else if (requester) {
             if (job.helperId != null) UserButton("Buka Chat", secondary = true, onClick = onChat)
-
-            if (!hasWorkProof) {
-                Notice("Menunggu Penulung", "Menunggu Penulung mengirim bukti pekerjaan.")
-            } else if (hasWorkProof && !hasPaymentProof) {
-                UserButton("Kirim Bukti Pembayaran", onClick = onPaymentProof)
-            } else if (hasWorkProof && hasPaymentProof) {
-                if (!job.requesterConfirmed) {
-                    UserButton("Konfirmasi Selesai", onClick = onConfirm)
-                } else {
-                    Notice("Menunggu Penulung", "Kamu sudah menekan konfirmasi. Menunggu konfirmasi Penulung.")
-                }
+            if (isOngoing) {
+                Spacer(Modifier.height(8.dp))
+                UserButton("Selesai", onClick = onCompleteFlow)
             }
         }
         if (job.status == JobStatus.AVAILABLE && requester) Notice("Menunggu Penulung", "Permintaanmu sudah diterbitkan. Penulung dapat melamar dan kamu dapat memilihnya.")
@@ -158,39 +160,99 @@ internal fun ActiveJobScreen(
 }
 
 @Composable
-internal fun ProofScreen(job: UserJob, busy: Boolean, onSubmit: (String, String) -> Unit, onError: (String) -> Unit) {
-    var uri by rememberSaveable(job.id) { mutableStateOf("") }
-    var name by rememberSaveable(job.id) { mutableStateOf("") }
+internal fun JobCompletionScreen(
+    job: UserJob,
+    profile: UserProfile,
+    busy: Boolean,
+    onUploadWorkProof: (String, String) -> Unit,
+    onUploadPaymentProof: (String, String) -> Unit,
+    onConfirmComplete: () -> Unit,
+    onError: (String) -> Unit
+) {
+    val isHelper = job.helperId == profile.id || (job.status in listOf(JobStatus.ACCEPTED, JobStatus.IN_PROGRESS) && job.requesterId != profile.id)
+    val isRequester = job.requesterId == profile.id
+    val hasWorkProof = !job.proofUri.isNullOrBlank()
+    val hasPaymentProof = !job.paymentProofUri.isNullOrBlank()
+
+    var workUri by rememberSaveable(job.id) { mutableStateOf(job.proofUri ?: "") }
+    var workName by rememberSaveable(job.id) { mutableStateOf(job.proofName ?: "Bukti Pekerjaan") }
+    var payUri by rememberSaveable(job.id) { mutableStateOf(job.paymentProofUri ?: "") }
+    var payName by rememberSaveable(job.id) { mutableStateOf(job.paymentProofName ?: "Bukti Pembayaran") }
+
     val context = LocalContext.current
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
+    val workPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
         if (selected != null) {
             runCatching {
                 context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                var filename = "Bukti foto"
+                var filename = "Bukti pekerjaan"
                 context.contentResolver.query(selected, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                         if (nameIndex >= 0) filename = cursor.getString(nameIndex)
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) require(cursor.getLong(sizeIndex) <= 20 * 1024 * 1024) { "Ukuran bukti maksimal 20 MB." }
                     }
                 }
-                uri = selected.toString(); name = filename
+                workUri = selected.toString(); workName = filename
             }.onFailure { onError(it.message ?: "File tidak dapat dibuka.") }
         }
     }
-    UserContent {
-        Notice(job.title, "Unggah foto bukti pekerjaan atau pembayaran.")
-        if (uri.isBlank()) {
-            Box(Modifier.fillMaxWidth().height(150.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { picker.launch(arrayOf("image/*", "application/pdf")) }, contentAlignment = Alignment.Center) {
-                UText("＋  Pilih foto/file bukti", color = UserPrimary, weight = FontWeight.Medium)
-            }
-        } else {
-            ProofPreview(uri, name, onError)
-            UserButton("Ganti foto/file", secondary = true) { picker.launch(arrayOf("image/*", "application/pdf")) }
+
+    val payPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
+        if (selected != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                var filename = "Bukti pembayaran"
+                context.contentResolver.query(selected, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex >= 0) filename = cursor.getString(nameIndex)
+                    }
+                }
+                payUri = selected.toString(); payName = filename
+            }.onFailure { onError(it.message ?: "File tidak dapat dibuka.") }
         }
-        UText("Pastikan foto atau file jelas dan sesuai.", color = UserSecondary, lineHeight = 21)
-        UserButton("Kirim Bukti", enabled = !busy && uri.isNotBlank()) { onSubmit(uri, name) }
+    }
+
+    UserContent {
+        UText("Konfirmasi Penyelesaian", size = 18, weight = FontWeight.Bold, lineHeight = 24)
+        StatusStrip(job.status.label)
+
+        if (isHelper) {
+            UText("Bukti Pekerjaan", size = 16, weight = FontWeight.Bold)
+            if (workUri.isBlank()) {
+                Box(Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { workPicker.launch(arrayOf("image/*")) }, contentAlignment = Alignment.Center) {
+                    UText("＋ Pilih Foto Bukti Pekerjaan", color = UserPrimary, weight = FontWeight.Medium)
+                }
+            } else {
+                ProofPreview(workUri, workName, onError)
+                UserButton("Ganti Foto Pekerjaan", secondary = true) { workPicker.launch(arrayOf("image/*")) }
+                UserButton("Kirim Foto Pekerjaan", enabled = !busy) { onUploadWorkProof(workUri, workName) }
+            }
+        }
+
+        if (isRequester) {
+            UText("Bukti Pembayaran", size = 16, weight = FontWeight.Bold)
+            if (payUri.isBlank()) {
+                Box(Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { payPicker.launch(arrayOf("image/*")) }, contentAlignment = Alignment.Center) {
+                    UText("＋ Pilih Foto Bukti Pembayaran", color = UserPrimary, weight = FontWeight.Medium)
+                }
+            } else {
+                ProofPreview(payUri, payName, onError)
+                UserButton("Ganti Foto Pembayaran", secondary = true) { payPicker.launch(arrayOf("image/*")) }
+                UserButton("Kirim Foto Pembayaran", enabled = !busy) { onUploadPaymentProof(payUri, payName) }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        UText("Status Bukti", size = 16, weight = FontWeight.Bold)
+        Notice("Bukti Pekerjaan", if (hasWorkProof) "✓ Bukti pekerjaan sudah dikirim" else "✗ Bukti pekerjaan belum dikirim")
+        Notice("Bukti Pembayaran", if (hasPaymentProof) "✓ Bukti pembayaran sudah dikirim" else "✗ Bukti pembayaran belum dikirim")
+
+        Spacer(Modifier.height(16.dp))
+        val canConfirm = hasWorkProof && hasPaymentProof
+        UserButton("Konfirmasi Selesai", enabled = !busy && canConfirm, onClick = onConfirmComplete)
+        if (!canConfirm) {
+            UText("Tombol akan aktif setelah kedua belah pihak (Helper & Peminta) mengirimkan bukti masing-masing.", size = 12, color = UserSecondary)
+        }
     }
 }
 
@@ -217,33 +279,6 @@ internal fun ProofPreview(uri: String?, name: String?, onError: (String) -> Unit
         if (bitmap != null) Image(bitmap!!, "Bukti", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
         else UText(name ?: "Bukti foto", color = UserPrimary, weight = FontWeight.Medium)
     }
-}
-
-@Composable
-internal fun ConfirmCompletionScreen(job: UserJob, profile: UserProfile, busy: Boolean, onConfirm: () -> Unit, onError: (String) -> Unit) {
-    var confirm by rememberSaveable { mutableStateOf(false) }
-    val isHelper = job.helperId == profile.id
-    val alreadyConfirmed = if (isHelper) job.helperConfirmed else job.requesterConfirmed
-
-    UserContent {
-        UText(job.title, size = 16, weight = FontWeight.Bold, lineHeight = 22)
-        StatusStrip(job.status.label)
-
-        Notice("Bukti Pekerjaan (dari Penulung)", job.proofName ?: "Foto penyelesaian")
-        ProofPreview(job.proofUri, job.proofName, onError)
-
-        Spacer(Modifier.height(8.dp))
-        Notice("Bukti Pembayaran (dari Peminta)", job.paymentProofName ?: "Foto pembayaran")
-        ProofPreview(job.paymentProofUri, job.paymentProofName, onError)
-
-        Spacer(Modifier.height(12.dp))
-        if (!alreadyConfirmed) {
-            UserButton("Konfirmasi Selesai", enabled = !busy && !job.proofUri.isNullOrBlank() && !job.paymentProofUri.isNullOrBlank()) { confirm = true }
-        } else {
-            Notice("Sudah Dikonfirmasi", "Kamu telah memberikan konfirmasi. Menunggu konfirmasi pihak lain.")
-        }
-    }
-    if (confirm) ConfirmDialog("Konfirmasi selesai?", "Pastikan hasil pekerjaan dan bukti pembayaran sudah sesuai.", "Selesai", { confirm = false }) { confirm = false; onConfirm() }
 }
 
 @Composable
