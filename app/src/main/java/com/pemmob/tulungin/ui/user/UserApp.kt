@@ -1,5 +1,6 @@
 package com.pemmob.tulungin.ui.user
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,10 +9,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pemmob.tulungin.data.user.*
 import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
+import kotlinx.coroutines.launch
 
 @Composable
 fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
@@ -30,6 +36,8 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
         val root = screen in listOf("home", "jobs", "history", "profile")
         val snackbar = remember { SnackbarHostState() }
         val savedScreens = rememberSaveableStateHolder()
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
 
         fun navigate(route: String) { if (stack.last() != route) stack = stack + route }
         fun tab(route: String) { stack = listOf(route) }
@@ -45,12 +53,39 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
             navigate("$route/${value.id}")
         }
 
-        fun uploadAndSubmitProof(jobId: String, uriString: String, name: String, isWorkProof: Boolean, onSuccessMessage: String) {
-            // Cloudinary Object Storage Integration Point:
-            // MediaManager.get().upload(Uri.parse(uriString)).unsigned("tulungin_preset").callback(...).dispatch()
-            viewModel.perform(onSuccessMessage) {
-                if (isWorkProof) submitProof(jobId, uriString, name)
-                else submitPaymentProof(jobId, uriString, name)
+        fun uploadToCloudinaryAndSubmit(jobId: String, uriString: String, name: String, isWorkProof: Boolean, onSuccessMessage: String) {
+            val uri = Uri.parse(uriString)
+            if (uriString.startsWith("content://") || uriString.startsWith("file://")) {
+                viewModel.perform("Mengunggah foto ke Cloudinary...") {
+                    runCatching {
+                        MediaManager.get().upload(uri)
+                            .unsigned("tulungin_preset")
+                            .callback(object : UploadCallback {
+                                override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
+                                    val secureUrl = resultData?.get("secure_url") as? String ?: uriString
+                                    coroutineScope.launch {
+                                        if (isWorkProof) viewModel.repository.submitProof(jobId, secureUrl, name)
+                                        else viewModel.repository.submitPaymentProof(jobId, secureUrl, name)
+                                        viewModel.notify(onSuccessMessage)
+                                    }
+                                }
+                                override fun onStart(requestId: String?) {}
+                                override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
+                                override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+                                override fun onError(requestId: String?, error: ErrorInfo?) {
+                                    viewModel.notify("Gagal upload ke Cloudinary: ${error?.description ?: "Coba lagi"}")
+                                }
+                            })
+                            .dispatch()
+                    }.onFailure {
+                        viewModel.notify("Cloudinary error: ${it.message}")
+                    }
+                }
+            } else {
+                viewModel.perform(onSuccessMessage) {
+                    if (isWorkProof) submitProof(jobId, uriString, name)
+                    else submitPaymentProof(jobId, uriString, name)
+                }
             }
         }
 
@@ -96,7 +131,7 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
                                     val updated = this.snapshot.value.jobs.first { it.id == job.id }
                                     if (updated.status == JobStatus.COMPLETED) stack = stack.dropLast(1) + "history_detail/${job.id}"
                                 } })
-                                "completion" -> JobCompletionScreen(job, state.profile, busy, { uri, name -> uploadAndSubmitProof(job.id, uri, name, true, "Bukti pekerjaan berhasil dikirim ke Cloudinary.") }, { uri, name -> uploadAndSubmitProof(job.id, uri, name, false, "Bukti pembayaran berhasil dikirim ke Cloudinary.") }, { viewModel.perform("Konfirmasi selesai berhasil disimpan.") { confirmCompletion(job.id); val updated = snapshot.value.jobs.firstOrNull { it.id == job.id }; if (updated?.status == JobStatus.COMPLETED) stack = stack.dropLast(1) + "history_detail/${job.id}" else back() } }, viewModel::notify)
+                                "completion" -> JobCompletionScreen(job, state.profile, busy, { uri, name -> uploadToCloudinaryAndSubmit(job.id, uri, name, true, "Bukti pekerjaan berhasil diunggah ke Cloudinary dan disimpan.") }, { uri, name -> uploadToCloudinaryAndSubmit(job.id, uri, name, false, "Bukti pembayaran berhasil diunggah ke Cloudinary dan disimpan.") }, { viewModel.perform("Konfirmasi selesai berhasil disimpan.") { confirmCompletion(job.id); val updated = snapshot.value.jobs.firstOrNull { it.id == job.id }; if (updated?.status == JobStatus.COMPLETED) stack = stack.dropLast(1) + "history_detail/${job.id}" else back() } }, viewModel::notify)
                                 "history_detail" -> HistoryDetailScreen(job, state.profile, { navigate("review/${job.id}") }, { navigate("payment/${job.id}") }, { navigate("map/${job.id}") })
                                 "review" -> ReviewScreen(job, busy) { rating, text -> viewModel.perform("Ulasan berhasil disimpan.") { submitReview(job.id, rating, text); back() } }
                                 "payment" -> PaymentScreen(job, busy) { method -> viewModel.perform("Pembayaran simulasi berhasil; tidak ada uang dipindahkan.") { pay(job.id, method) } }

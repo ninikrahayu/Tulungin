@@ -62,8 +62,8 @@ class MainActivity : ComponentActivity() {
 
         runCatching {
             MediaManager.init(this, mapOf(
-                "cloud_name" to "tulungin-cloud",
-                "api_key" to "123456789012345"
+                "cloud_name" to "ahvdebyq",
+                "api_key" to "381984953261827"
             ))
         }
 

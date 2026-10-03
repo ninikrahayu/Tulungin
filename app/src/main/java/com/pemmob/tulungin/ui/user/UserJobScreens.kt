@@ -2,6 +2,7 @@ package com.pemmob.tulungin.ui.user
 
 import android.Manifest
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.location.Location
 import android.net.Uri
@@ -36,6 +37,8 @@ import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 
 @Composable
@@ -304,10 +307,10 @@ internal fun JobCompletionScreen(
     val hasWorkProof = !job.proofUri.isNullOrBlank()
     val hasPaymentProof = !job.paymentProofUri.isNullOrBlank()
 
-    var workUri by rememberSaveable(job.id) { mutableStateOf(job.proofUri ?: "") }
-    var workName by rememberSaveable(job.id) { mutableStateOf(job.proofName ?: "Bukti Pekerjaan") }
-    var payUri by rememberSaveable(job.id) { mutableStateOf(job.paymentProofUri ?: "") }
-    var payName by rememberSaveable(job.id) { mutableStateOf(job.paymentProofName ?: "Bukti Pembayaran") }
+    var workUri by rememberSaveable(job.id, job.proofUri) { mutableStateOf(job.proofUri ?: "") }
+    var workName by rememberSaveable(job.id, job.proofName) { mutableStateOf(job.proofName ?: "Bukti Pekerjaan") }
+    var payUri by rememberSaveable(job.id, job.paymentProofUri) { mutableStateOf(job.paymentProofUri ?: "") }
+    var payName by rememberSaveable(job.id, job.paymentProofName) { mutableStateOf(job.paymentProofName ?: "Bukti Pembayaran") }
 
     val context = LocalContext.current
     val workPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
@@ -346,8 +349,9 @@ internal fun JobCompletionScreen(
         UText("Konfirmasi Penyelesaian", size = 18, weight = FontWeight.Bold, lineHeight = 24)
         StatusStrip(job.status.label)
 
+        // Helper Section: Work Proof
+        UText("Bukti Pekerjaan (dari Penulung)", size = 16, weight = FontWeight.Bold)
         if (isHelper) {
-            UText("Bukti Pekerjaan", size = 16, weight = FontWeight.Bold)
             if (workUri.isBlank()) {
                 Box(Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { workPicker.launch(arrayOf("image/*")) }, contentAlignment = Alignment.Center) {
                     UText("＋ Pilih Foto Bukti Pekerjaan", color = UserPrimary, weight = FontWeight.Medium)
@@ -357,10 +361,18 @@ internal fun JobCompletionScreen(
                 UserButton("Ganti Foto Pekerjaan", secondary = true) { workPicker.launch(arrayOf("image/*")) }
                 UserButton("Kirim Foto Pekerjaan", enabled = !busy) { onUploadWorkProof(workUri, workName) }
             }
+        } else {
+            if (hasWorkProof) {
+                ProofPreview(job.proofUri, job.proofName, onError)
+            } else {
+                Notice("Belum ada bukti", "Penulung belum mengirim bukti pekerjaan.")
+            }
         }
 
+        Spacer(Modifier.height(16.dp))
+        // Requester Section: Payment Proof
+        UText("Bukti Pembayaran (dari Peminta)", size = 16, weight = FontWeight.Bold)
         if (isRequester) {
-            UText("Bukti Pembayaran", size = 16, weight = FontWeight.Bold)
             if (payUri.isBlank()) {
                 Box(Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { payPicker.launch(arrayOf("image/*")) }, contentAlignment = Alignment.Center) {
                     UText("＋ Pilih Foto Bukti Pembayaran", color = UserPrimary, weight = FontWeight.Medium)
@@ -369,6 +381,12 @@ internal fun JobCompletionScreen(
                 ProofPreview(payUri, payName, onError)
                 UserButton("Ganti Foto Pembayaran", secondary = true) { payPicker.launch(arrayOf("image/*")) }
                 UserButton("Kirim Foto Pembayaran", enabled = !busy) { onUploadPaymentProof(payUri, payName) }
+            }
+        } else {
+            if (hasPaymentProof) {
+                ProofPreview(job.paymentProofUri, job.paymentProofName, onError)
+            } else {
+                Notice("Belum ada bukti", "Peminta belum mengirim bukti pembayaran.")
             }
         }
 
@@ -391,23 +409,61 @@ internal fun ProofPreview(uri: String?, name: String?, onError: (String) -> Unit
     val context = LocalContext.current
     val bitmap by produceState<ImageBitmap?>(null, uri) {
         value = withContext(Dispatchers.IO) {
-            if (uri.isNullOrBlank() || uri.startsWith("demo://")) null else runCatching {
-                val source = ImageDecoder.createSource(context.contentResolver, Uri.parse(uri))
-                ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-                    val sample = (maxOf(info.size.width, info.size.height) / 1200).coerceAtLeast(1)
-                    decoder.setTargetSampleSize(sample)
-                }.asImageBitmap()
-            }.getOrNull()
+            if (uri.isNullOrBlank() || uri.startsWith("demo://")) {
+                null
+            } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
+                runCatching {
+                    val url = URL(uri)
+                    val connection = url.openConnection() as HttpURLConnection
+                    connection.doInput = true
+                    connection.connect()
+                    val inputStream = connection.inputStream
+                    BitmapFactory.decodeStream(inputStream)?.asImageBitmap()
+                }.getOrNull()
+            } else {
+                runCatching {
+                    val source = ImageDecoder.createSource(context.contentResolver, Uri.parse(uri))
+                    ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                        val sample = (maxOf(info.size.width, info.size.height) / 1200).coerceAtLeast(1)
+                        decoder.setTargetSampleSize(sample)
+                    }.asImageBitmap()
+                }.getOrNull()
+            }
         }
     }
-    Box(Modifier.fillMaxWidth().height(150.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable {
-        if (!uri.isNullOrBlank() && !uri.startsWith("demo://")) runCatching {
-            val parsed = Uri.parse(uri)
-            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(parsed, context.contentResolver.getType(parsed) ?: "application/octet-stream").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-        }.onFailure { onError("File tidak tersedia atau belum ada aplikasi pembukanya. Pilih kembali file bukti.") }
-    }.padding(12.dp), contentAlignment = Alignment.Center) {
-        if (bitmap != null) Image(bitmap!!, "Bukti", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-        else UText(name ?: "Bukti foto", color = UserPrimary, weight = FontWeight.Medium)
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .background(UserSurface, RoundedCornerShape(16.dp))
+            .border(1.dp, UserOutline, RoundedCornerShape(16.dp))
+            .clickable {
+                if (!uri.isNullOrBlank() && !uri.startsWith("demo://")) {
+                    runCatching {
+                        val parsed = Uri.parse(uri)
+                        val intent = if (uri.startsWith("http://") || uri.startsWith("https://")) {
+                            Intent(Intent.ACTION_VIEW, parsed)
+                        } else {
+                            Intent(Intent.ACTION_VIEW).setDataAndType(
+                                parsed,
+                                context.contentResolver.getType(parsed) ?: "application/octet-stream"
+                            ).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(intent)
+                    }.onFailure {
+                        onError("File tidak tersedia atau belum ada aplikasi pembukanya.")
+                    }
+                }
+            }
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap != null) {
+            Image(bitmap!!, "Bukti", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        } else {
+            UText(name ?: "Bukti foto", color = UserPrimary, weight = FontWeight.Medium)
+        }
     }
 }
 
