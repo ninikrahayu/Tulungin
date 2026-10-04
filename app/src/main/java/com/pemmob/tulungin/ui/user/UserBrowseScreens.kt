@@ -1,5 +1,8 @@
 package com.pemmob.tulungin.ui.user
 
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -9,7 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -19,6 +26,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.data.user.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 
 @Composable
@@ -95,7 +106,7 @@ internal fun BrowseJobsScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
                 state.applications.none { app -> app.jobId == it.id && app.applicantId == state.profile.id && app.status == "accepted" } &&
                 (query.isBlank() || "${it.title} ${it.category} ${it.location}".contains(query.trim(), true)) &&
                 (category == "Semua kategori" || it.category == category) &&
-                it.distanceKm <= maximumDistance
+                (distance == "Semua jarak" || (it.distanceKm.isFinite() && it.distanceKm <= maximumDistance))
     }
     UserContent {
         UserField("Cari Job", query, { query = it }, "Cari pekerjaan...")
@@ -148,6 +159,46 @@ internal fun HistoryScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
 }
 
 @Composable
+internal fun ProfileAvatar(photoUrl: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(null, photoUrl) {
+        value = withContext(Dispatchers.IO) {
+            if (photoUrl.isBlank()) {
+                null
+            } else if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+                runCatching {
+                    val url = URL(photoUrl)
+                    val connection = url.openConnection() as HttpURLConnection
+                    connection.doInput = true
+                    connection.connect()
+                    val inputStream = connection.inputStream
+                    BitmapFactory.decodeStream(inputStream)?.asImageBitmap()
+                }.getOrNull()
+            } else {
+                runCatching {
+                    val source = ImageDecoder.createSource(context.contentResolver, Uri.parse(photoUrl))
+                    ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                        val sample = (maxOf(info.size.width, info.size.height) / 800).coerceAtLeast(1)
+                        decoder.setTargetSampleSize(sample)
+                    }.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!,
+            contentDescription = "Foto Profil",
+            modifier = modifier.clip(RoundedCornerShape(14.dp)),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        FigmaAsset("avatar", modifier)
+    }
+}
+
+@Composable
 internal fun ProfileScreen(profile: UserProfile, onNavigate: (String) -> Unit, onLogout: () -> Unit) {
     val auth = FirebaseAuth.getInstance()
     val isVerifiedAccount = profile.verified
@@ -191,7 +242,7 @@ internal fun ProfileScreen(profile: UserProfile, onNavigate: (String) -> Unit, o
                 UText(profile.name.ifBlank { "Pengguna" }, weight = FontWeight.SemiBold, color = UserPrimary)
                 UText(if (isVerifiedAccount) "Akun terverifikasi" else "Belum terverifikasi", size = 13, color = if (isVerifiedAccount) UserPrimary else Color(0xFFD32F2F))
             }
-            FigmaAsset("avatar", Modifier.size(52.dp))
+            ProfileAvatar(profile.photoUrl, Modifier.size(52.dp))
         }
 
         if (!isVerifiedAccount) {
@@ -200,13 +251,26 @@ internal fun ProfileScreen(profile: UserProfile, onNavigate: (String) -> Unit, o
                 if (user == null) {
                     Toast.makeText(context, "User belum login.", Toast.LENGTH_SHORT).show()
                 } else {
-                    user.sendEmailVerification().addOnCompleteListener { sendTask ->
-                        if (sendTask.isSuccessful) {
+                    user.reload().addOnCompleteListener { reloadTask ->
+                        if (reloadTask.isSuccessful && user.isEmailVerified) {
                             FirebaseFirestore.getInstance().collection("users").document(user.uid)
-                                .update("verificationRequested", true)
-                            Toast.makeText(context, "Email verifikasi telah dikirim. Silakan cek inbox email Anda.", Toast.LENGTH_LONG).show()
+                                .update("verified", true)
+                                .addOnSuccessListener {
+                                    Toast.makeText(context, "Email berhasil terverifikasi! Akun Anda kini terverifikasi.", Toast.LENGTH_SHORT).show()
+                                }
+                                .addOnFailureListener { e ->
+                                    Toast.makeText(context, "Gagal memperbarui status: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
                         } else {
-                            Toast.makeText(context, "Gagal mengirim email: ${sendTask.exception?.message}", Toast.LENGTH_LONG).show()
+                            user.sendEmailVerification().addOnCompleteListener { sendTask ->
+                                if (sendTask.isSuccessful) {
+                                    FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                                        .update("verificationRequested", true)
+                                    Toast.makeText(context, "Email verifikasi telah dikirim. Silakan cek inbox email Anda.", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Gagal mengirim email: ${sendTask.exception?.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
                         }
                     }
                 }

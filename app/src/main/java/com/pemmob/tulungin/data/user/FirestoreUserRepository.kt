@@ -42,10 +42,14 @@ class FirestoreUserRepository(context: Context) : UserRepository {
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         val user = firebaseAuth.currentUser
         if (user != null) {
-            listenToUser(user.uid)
+            listenToData(user.uid)
         } else {
             userListener?.remove()
             userListener = null
+            jobsListener?.remove()
+            jobsListener = null
+            applicationsListener?.remove()
+            applicationsListener = null
             mutableSnapshot.value = UserSnapshot()
         }
     }
@@ -68,75 +72,12 @@ class FirestoreUserRepository(context: Context) : UserRepository {
             auth.addAuthStateListener(authStateListener)
             val currentUser = auth.currentUser
             if (currentUser != null) {
-                listenToUser(currentUser.uid)
+                listenToData(currentUser.uid)
             }
-
-            jobsListener = firestore.collection("jobs")
-                .addSnapshotListener { querySnapshot, error ->
-                    if (error != null) return@addSnapshotListener
-                    val documents = querySnapshot?.documents ?: return@addSnapshotListener
-                    val firestoreJobs = documents.mapNotNull { document ->
-                        try {
-                            UserJob(
-                                id = document.getString("id") ?: document.id,
-                                title = document.getString("title") ?: "",
-                                category = document.getString("category") ?: "",
-                                description = document.getString("description") ?: "",
-                                location = document.getString("location") ?: "",
-                                locationLat = document.get("locationLat") as? Double ?: document.get("locationLat")?.toString()?.toDoubleOrNull(),
-                                locationLng = document.get("locationLng") as? Double ?: document.get("locationLng")?.toString()?.toDoubleOrNull(),
-                                scheduledAt = document.getString("scheduledAt") ?: "",
-                                fee = when (val f = document.get("fee")) { is Number -> f.toLong(); is String -> f.toLongOrNull() ?: 0L; else -> 0L },
-                                distanceKm = when (val d = document.get("distanceKm")) { is Number -> d.toDouble(); is String -> d.toDoubleOrNull() ?: 0.0; else -> 0.0 },
-                                requesterId = document.getString("requesterId") ?: "",
-                                requesterName = document.getString("requesterName") ?: "",
-                                helperId = document.getString("helperId"),
-                                helperName = document.getString("helperName"),
-                                status = parseJobStatus(document.getString("status")),
-                                proofUri = document.getString("proofUri"),
-                                proofName = document.getString("proofName"),
-                                paymentProofUri = document.getString("paymentProofUri"),
-                                paymentProofName = document.getString("paymentProofName"),
-                                helperConfirmed = document.getBoolean("helperConfirmed") ?: false,
-                                requesterConfirmed = document.getBoolean("requesterConfirmed") ?: false,
-                                rating = when (val r = document.get("rating")) { is Number -> r.toInt(); is String -> r.toIntOrNull() ?: 0; else -> 0 },
-                                review = document.getString("review") ?: "",
-                                paymentMethod = document.getString("paymentMethod") ?: "",
-                                paid = document.getBoolean("paid") ?: false
-                            )
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }
-                    val current = snapshot.value
-                    mutableSnapshot.value = current.copy(jobs = firestoreJobs)
-                }
-
-            applicationsListener = firestore.collection("applications")
-                .addSnapshotListener { querySnapshot, error ->
-                    if (error != null) return@addSnapshotListener
-                    val documents = querySnapshot?.documents ?: return@addSnapshotListener
-                    val firestoreApps = documents.mapNotNull { document ->
-                        try {
-                            UserApplication(
-                                id = document.getString("id") ?: document.id,
-                                jobId = document.getString("jobId") ?: "",
-                                applicantId = document.getString("applicantId") ?: "",
-                                applicantName = document.getString("applicantName") ?: "",
-                                status = document.getString("status") ?: "pending",
-                                createdAt = document.getLong("createdAt") ?: System.currentTimeMillis()
-                            )
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }
-                    val current = snapshot.value
-                    mutableSnapshot.value = current.copy(applications = firestoreApps)
-                }
         }
     }
 
-    private fun listenToUser(userId: String) {
+    private fun listenToData(userId: String) {
         userListener?.remove()
         userListener = firestore.collection("users").document(userId)
             .addSnapshotListener { doc, error ->
@@ -166,6 +107,71 @@ class FirestoreUserRepository(context: Context) : UserRepository {
                     verificationRequested = doc.getBoolean("verificationRequested") ?: false
                 )
                 mutableSnapshot.value = snapshot.value.copy(profile = profile)
+            }
+
+        jobsListener?.remove()
+        jobsListener = firestore.collection("jobs")
+            .addSnapshotListener { querySnapshot, error ->
+                if (error != null) return@addSnapshotListener
+                val documents = querySnapshot?.documents ?: return@addSnapshotListener
+                val firestoreJobs = documents.mapNotNull { document ->
+                    try {
+                        UserJob(
+                            id = document.getString("id") ?: document.id,
+                            title = document.getString("title") ?: "",
+                            category = document.getString("category") ?: "",
+                            description = document.getString("description") ?: "",
+                            location = document.getString("location") ?: "",
+                            locationLat = document.get("locationLat") as? Double ?: document.get("locationLat")?.toString()?.toDoubleOrNull(),
+                            locationLng = document.get("locationLng") as? Double ?: document.get("locationLng")?.toString()?.toDoubleOrNull(),
+                            scheduledAt = document.getString("scheduledAt") ?: "",
+                            fee = when (val f = document.get("fee")) { is Number -> f.toLong(); is String -> f.toLongOrNull() ?: 0L; else -> 0L },
+                            distanceKm = when (val d = document.get("distanceKm")) { is Number -> d.toDouble(); is String -> d.toDoubleOrNull() ?: 0.0; else -> 0.0 },
+                            requesterId = document.getString("requesterId") ?: "",
+                            requesterName = document.getString("requesterName") ?: "",
+                            helperId = document.getString("helperId"),
+                            helperName = document.getString("helperName"),
+                            status = parseJobStatus(document.getString("status")),
+                            proofUri = document.getString("proofUri"),
+                            proofName = document.getString("proofName"),
+                            paymentProofUri = document.getString("paymentProofUri"),
+                            paymentProofName = document.getString("paymentProofName"),
+                            helperConfirmed = document.getBoolean("helperConfirmed") ?: false,
+                            requesterConfirmed = document.getBoolean("requesterConfirmed") ?: false,
+                            rating = when (val r = document.get("rating")) { is Number -> r.toInt(); is String -> r.toIntOrNull() ?: 0; else -> 0 },
+                            review = document.getString("review") ?: "",
+                            paymentMethod = document.getString("paymentMethod") ?: "",
+                            paid = document.getBoolean("paid") ?: false
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val current = snapshot.value
+                mutableSnapshot.value = current.copy(jobs = firestoreJobs)
+            }
+
+        applicationsListener?.remove()
+        applicationsListener = firestore.collection("applications")
+            .addSnapshotListener { querySnapshot, error ->
+                if (error != null) return@addSnapshotListener
+                val documents = querySnapshot?.documents ?: return@addSnapshotListener
+                val firestoreApps = documents.mapNotNull { document ->
+                    try {
+                        UserApplication(
+                            id = document.getString("id") ?: document.id,
+                            jobId = document.getString("jobId") ?: "",
+                            applicantId = document.getString("applicantId") ?: "",
+                            applicantName = document.getString("applicantName") ?: "",
+                            status = document.getString("status") ?: "pending",
+                            createdAt = document.getLong("createdAt") ?: System.currentTimeMillis()
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val current = snapshot.value
+                mutableSnapshot.value = current.copy(applications = firestoreApps)
             }
     }
 
@@ -210,7 +216,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
 
         val firebaseUser = auth.currentUser ?: error("User belum login.")
         val userId = firebaseUser.uid
-        listenToUser(userId)
+        listenToData(userId)
         val id = runCatching { firestore.collection("jobs").document().id }.getOrNull() ?: UUID.randomUUID().toString()
 
         val requesterName = firebaseUser.displayName?.takeIf { it.isNotBlank() } ?: snapshot.value.profile.name.ifBlank { "Pengguna" }
@@ -266,7 +272,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
     override suspend fun applyJob(jobId: String): Unit = mutex.withLock {
         val firebaseUser = auth.currentUser ?: error("User belum login.")
         val userId = firebaseUser.uid
-        listenToUser(userId)
+        listenToData(userId)
         val current = snapshot.value
         val userName = current.profile.name.ifBlank { firebaseUser.displayName ?: "Pengguna" }
 
@@ -297,7 +303,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
     override suspend fun selectApplication(jobId: String, applicationId: String): Unit = mutex.withLock {
         val firebaseUser = auth.currentUser ?: error("User belum login.")
         val userId = firebaseUser.uid
-        listenToUser(userId)
+        listenToData(userId)
         val current = snapshot.value
 
         val job = current.jobs.firstOrNull { it.id == jobId } ?: error("Job tidak ditemukan.")
@@ -338,7 +344,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
         
         val firebaseUser = auth.currentUser ?: error("User belum login.")
         val currentId = firebaseUser.uid
-        listenToUser(currentId)
+        listenToData(currentId)
         val updated = profile.copy(id = currentId, name = profile.name.trim(), email = profile.email.trim(), phone = profile.phone.trim(), address = profile.address.trim())
 
         firestore.collection("users").document(currentId).set(
