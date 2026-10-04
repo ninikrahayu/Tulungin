@@ -41,6 +41,14 @@ fun DetailJob(
 ) {
     val scrollState = rememberScrollState()
 
+    // Determine progress step strictly from statusText (job.status as source of truth)
+    val computedProgressStep = when (statusText.uppercase().trim()) {
+        "AVAILABLE", "OPEN" -> 0
+        "IN_PROGRESS", "ACCEPTED", "INPROGRESS", "PROGRESS", "AWAITING_CONFIRMATION", "AWAITING" -> 2
+        "COMPLETED", "COMPLETE" -> 4
+        else -> currentProgressStep.coerceIn(0, 4)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -177,8 +185,8 @@ fun DetailJob(
             progressSteps.forEachIndexed { index, stepTitle ->
                 DetailTimelineItem(
                     title = stepTitle,
-                    isCompleted = index <= currentProgressStep,
-                    isCurrent = index == currentProgressStep,
+                    isCompleted = index <= computedProgressStep,
+                    isCurrent = index == computedProgressStep,
                     isLast = index == progressSteps.lastIndex
                 )
             }
