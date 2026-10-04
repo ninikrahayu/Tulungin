@@ -3,60 +3,35 @@ package com.pemmob.tulungin.ui.admin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginDivider
-import com.pemmob.tulungin.ui.theme.TulunginInputBg
-import com.pemmob.tulungin.ui.theme.TulunginInputBorder
-import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginPlaceholder
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.*
 
 data class JobItem(
-    val id: Int,
+    val id: String,
     val title: String,
     val category: String,
     val requester: String,
-    val status: String
+    val status: String,
+    val description: String,
+    val location: String,
+    val scheduledAt: String,
+    val fee: Long,
+    val helperName: String?
 )
 
 @Composable
@@ -66,34 +41,38 @@ fun KelolaJob(
     onJobClick: (JobItem) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var jobList by remember { mutableStateOf<List<JobItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val jobList = remember {
-        listOf(
-            JobItem(
-                id = 1,
-                title = "Bantu Pindahan Kos",
-                category = "Jasa Rumah",
-                requester = "Andi Pratama",
-                status = "Aktif"
-            ),
-            JobItem(
-                id = 2,
-                title = "Antar Dokumen",
-                category = "Pengantaran",
-                requester = "Budi Santoso",
-                status = "Selesai"
-            ),
-            JobItem(
-                id = 3,
-                title = "Bersihkan Halaman",
-                category = "Kebersihan",
-                requester = "Siti Rahma",
-                status = "Dalam Proses"
-            )
-        )
+    LaunchedEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("jobs").addSnapshotListener { snapshot, error ->
+            loading = false
+            if (error != null) {
+                errorMessage = error.message
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                jobList = snapshot.documents.map { doc ->
+                    JobItem(
+                        id = doc.id,
+                        title = doc.getString("title") ?: "Tanpa Judul",
+                        category = doc.getString("category") ?: "Lainnya",
+                        requester = doc.getString("requesterName") ?: "Peminta",
+                        status = doc.getString("status") ?: "AVAILABLE",
+                        description = doc.getString("description") ?: "",
+                        location = doc.getString("location") ?: "",
+                        scheduledAt = doc.getString("scheduledAt") ?: "",
+                        fee = doc.getLong("fee") ?: 0L,
+                        helperName = doc.getString("helperName")
+                    )
+                }
+            }
+        }
     }
 
-    val filteredJobs = remember(searchQuery) {
+    val filteredJobs = remember(searchQuery, jobList) {
         if (searchQuery.isBlank()) {
             jobList
         } else {
@@ -112,7 +91,6 @@ fun KelolaJob(
             .background(Color.White)
             .statusBarsPadding()
     ) {
-        // Top Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -139,14 +117,12 @@ fun KelolaJob(
             )
         }
 
-        // Faint horizontal divider under Top Header
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 1.dp,
             color = TulunginDivider
         )
 
-        // Search Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -156,11 +132,7 @@ fun KelolaJob(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = {
-                    Text(
-                        text = "Cari job...",
-                        color = TulunginPlaceholder,
-                        fontSize = 14.sp
-                    )
+                    Text(text = "Cari job...", color = TulunginPlaceholder, fontSize = 14.sp)
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -177,7 +149,6 @@ fun KelolaJob(
             )
         }
 
-        // Section Title: "Daftar Job"
         Text(
             text = "Daftar Job",
             color = TulunginTextPrimary,
@@ -188,20 +159,38 @@ fun KelolaJob(
                 .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp)
         )
 
-        // Job List (LazyColumn)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(
-                items = filteredJobs,
-                key = { job -> job.id }
-            ) { job ->
-                JobCardItem(
-                    job = job,
-                    onClick = { onJobClick(job) }
-                )
+        when {
+            loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Memuat data...", color = TulunginTextSecondary)
+                }
+            }
+            errorMessage != null -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Tidak dapat memuat data: $errorMessage", color = Color.Red)
+                }
+            }
+            filteredJobs.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Belum ada data.", color = TulunginTextSecondary)
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(
+                        items = filteredJobs,
+                        key = { job -> job.id }
+                    ) { job ->
+                        JobCardItem(
+                            job = job,
+                            onClick = { onJobClick(job) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -223,7 +212,6 @@ private fun JobCardItem(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Job Details Column
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -254,20 +242,11 @@ private fun JobCardItem(
             )
         }
 
-        // Chevron Right Icon
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
             contentDescription = null,
             tint = TulunginPrimary,
             modifier = Modifier.size(18.dp)
         )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun KelolaJobPreview() {
-    TulunginTheme {
-        KelolaJob()
     }
 }

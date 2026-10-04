@@ -3,66 +3,30 @@ package com.pemmob.tulungin.ui.admin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginDeleteText
-import com.pemmob.tulungin.ui.theme.TulunginInactiveStep
-import com.pemmob.tulungin.ui.theme.TulunginInputBorder
-import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginMintLight
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextMuted
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class CategoryItem(
-    val id: Int,
+    val id: String,
     val name: String,
     val iconRes: Int
 )
@@ -73,26 +37,48 @@ fun KelolaKategori(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {}
 ) {
-    var categoryList by remember {
-        mutableStateOf(
-            listOf(
-                CategoryItem(id = 1, name = "Kebersihan", iconRes = R.drawable.ic_sparkles),
-                CategoryItem(id = 2, name = "Pengantaran", iconRes = R.drawable.ic_truck),
-                CategoryItem(id = 3, name = "Perbaikan", iconRes = R.drawable.ic_wrench),
-                CategoryItem(id = 4, name = "Jasa Rumah", iconRes = R.drawable.ic_home)
-            )
-        )
-    }
+    var categoryList by remember { mutableStateOf<List<CategoryItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // State for Edit Bottom Sheet
     var selectedCategory by remember { mutableStateOf<CategoryItem?>(null) }
     var editedName by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    // State for Add Category
     var isAddingCategory by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("categories").addSnapshotListener { snapshot, error ->
+            loading = false
+            if (error != null) {
+                errorMessage = error.message
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                if (snapshot.isEmpty) {
+                    // Seed initial categories
+                    val defaults = listOf("Kebersihan", "Pengantaran", "Perbaikan", "Jasa Rumah", "Lainnya")
+                    defaults.forEach { catName ->
+                        val docId = db.collection("categories").document().id
+                        db.collection("categories").document(docId).set(
+                            mapOf("id" to docId, "name" to catName, "createdAt" to FieldValue.serverTimestamp())
+                        )
+                    }
+                } else {
+                    categoryList = snapshot.documents.map { doc ->
+                        CategoryItem(
+                            id = doc.id,
+                            name = doc.getString("name") ?: "Kategori",
+                            iconRes = R.drawable.ic_category
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -103,7 +89,6 @@ fun KelolaKategori(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -132,7 +117,6 @@ fun KelolaKategori(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Subtitle: Kategori Bantuan
             Text(
                 text = "Kategori Bantuan",
                 color = TulunginTextPrimary,
@@ -145,27 +129,44 @@ fun KelolaKategori(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Category List (LazyColumn)
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                items(
-                    items = categoryList,
-                    key = { it.id }
-                ) { item ->
-                    CategoryCardItem(
-                        item = item,
-                        onClick = {
-                            selectedCategory = item
-                            editedName = item.name
+            when {
+                loading -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Memuat data...", color = TulunginTextSecondary)
+                    }
+                }
+                errorMessage != null -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Tidak dapat memuat data: $errorMessage", color = Color.Red)
+                    }
+                }
+                categoryList.isEmpty() -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Belum ada data.", color = TulunginTextSecondary)
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(
+                            items = categoryList,
+                            key = { it.id }
+                        ) { item ->
+                            CategoryCardItem(
+                                item = item,
+                                onClick = {
+                                    selectedCategory = item
+                                    editedName = item.name
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
 
-            // Bottom Button: + Tambah Kategori
             Button(
                 onClick = {
                     isAddingCategory = true
@@ -191,7 +192,6 @@ fun KelolaKategori(
             }
         }
 
-        // Edit Kategori BottomSheet (Sesuai Desain Screenshot)
         if (selectedCategory != null) {
             ModalBottomSheet(
                 onDismissRequest = { selectedCategory = null },
@@ -214,28 +214,33 @@ fun KelolaKategori(
                     onSaveClick = {
                         val current = selectedCategory
                         if (current != null && editedName.isNotBlank()) {
-                            categoryList = categoryList.map {
-                                if (it.id == current.id) it.copy(name = editedName) else it
+                            coroutineScope.launch {
+                                runCatching {
+                                    FirebaseFirestore.getInstance().collection("categories").document(current.id)
+                                        .update("name", editedName.trim()).await()
+                                }
+                                sheetState.hide()
+                                selectedCategory = null
                             }
-                        }
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                            selectedCategory = null
                         }
                     },
                     onDeleteClick = {
                         val current = selectedCategory
                         if (current != null) {
-                            categoryList = categoryList.filter { it.id != current.id }
-                        }
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                            selectedCategory = null
+                            coroutineScope.launch {
+                                runCatching {
+                                    FirebaseFirestore.getInstance().collection("categories").document(current.id)
+                                        .delete().await()
+                                }
+                                sheetState.hide()
+                                selectedCategory = null
+                            }
                         }
                     }
                 )
             }
         }
 
-        // Tambah Kategori BottomSheet
         if (isAddingCategory) {
             ModalBottomSheet(
                 onDismissRequest = { isAddingCategory = false },
@@ -259,15 +264,17 @@ fun KelolaKategori(
                     showDeleteButton = false,
                     onSaveClick = {
                         if (newCategoryName.isNotBlank()) {
-                            val newId = (categoryList.maxOfOrNull { it.id } ?: 0) + 1
-                            categoryList = categoryList + CategoryItem(
-                                id = newId,
-                                name = newCategoryName,
-                                iconRes = R.drawable.ic_category
-                            )
-                        }
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                            isAddingCategory = false
+                            coroutineScope.launch {
+                                runCatching {
+                                    val db = FirebaseFirestore.getInstance()
+                                    val docId = db.collection("categories").document().id
+                                    db.collection("categories").document(docId).set(
+                                        mapOf("id" to docId, "name" to newCategoryName.trim(), "createdAt" to FieldValue.serverTimestamp())
+                                    ).await()
+                                }
+                                sheetState.hide()
+                                isAddingCategory = false
+                            }
                         }
                     },
                     onDeleteClick = {}
@@ -304,7 +311,6 @@ fun EditCategorySheetContent(
 
         Spacer(modifier = Modifier.height(22.dp))
 
-        // Input Field: Nama Kategori
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Nama Kategori",
@@ -333,7 +339,6 @@ fun EditCategorySheetContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // "Simpan Perubahan" Button
         Button(
             onClick = onSaveClick,
             modifier = Modifier
@@ -357,10 +362,7 @@ fun EditCategorySheetContent(
         if (showDeleteButton) {
             Spacer(modifier = Modifier.height(14.dp))
 
-            // "Hapus Kategori" Text Button
-            TextButton(
-                onClick = onDeleteClick
-            ) {
+            TextButton(onClick = onDeleteClick) {
                 Text(
                     text = "Hapus Kategori",
                     color = TulunginDeleteText,
@@ -390,7 +392,6 @@ private fun CategoryCardItem(
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon Container Box
         Box(
             modifier = Modifier
                 .size(46.dp)
@@ -407,7 +408,6 @@ private fun CategoryCardItem(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Category Name
         Text(
             text = item.name,
             color = TulunginTextPrimary,
@@ -416,20 +416,11 @@ private fun CategoryCardItem(
             modifier = Modifier.weight(1f)
         )
 
-        // Chevron Right
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
             contentDescription = null,
             tint = TulunginTextSecondary,
             modifier = Modifier.size(20.dp)
         )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun KelolaKategoriPreview() {
-    TulunginTheme {
-        KelolaKategori()
     }
 }

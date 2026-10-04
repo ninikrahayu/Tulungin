@@ -100,7 +100,8 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
             "jobs" -> "Job Available"; "history" -> "Histori"; "profile" -> "Profil"
             "create" -> "Buat Permintaan"; "detail" -> "Detail Job"; "active" -> if (job?.requesterId == state.profile.id) "Detail Permintaan" else "Job Aktif"
             "completion" -> "Konfirmasi Penyelesaian"; "review" -> "Beri Ulasan"
-            "history_detail" -> "Detail Histori"; "chats" -> "Chat"; "chat" -> chat?.name ?: if (job?.requesterId == state.profile.id) job?.helperName ?: "Penulung" else job?.requesterName ?: "Chat"
+            "history_detail" -> "Detail Histori"; "chats" -> "Chat"; "admin_chat" -> "Chat dengan Admin"
+            "chat" -> chat?.name ?: if (job?.requesterId == state.profile.id) job?.helperName ?: "Penulung" else job?.requesterName ?: "Chat"
             "map" -> "Lokasi"; "edit_profile" -> "Edit Profil"; "payment" -> "Pembayaran"
             "support" -> "Bantuan"; "demo" -> "Mode Simulasi"; else -> "Tulungin"
         }
@@ -119,7 +120,8 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
                         "profile" -> ProfileScreen(state.profile, ::navigate) { logout = true }
                         "create" -> CreateRequestScreen(busy, { draft -> viewModel.perform("Permintaan simulasi berhasil diterbitkan.") { val createdId = createJob(draft); stack = listOf("home", "active/$createdId") } }, viewModel::notify)
                         "edit_profile" -> EditProfileScreen(state.profile, busy) { profile -> viewModel.perform("Profil berhasil disimpan.") { updateProfile(profile); back() } }
-                        "chats" -> ChatListScreen(state) { navigate("chat/$it") }
+                        "chats" -> ChatListScreen(state, { navigate("chat/$it") }) { navigate("admin_chat") }
+                        "admin_chat" -> UserAdminChatScreen(state.profile, busy, viewModel::notify)
                         "support" -> SupportScreen(busy, state.tickets) { text, clear -> viewModel.perform { val ticket = sendSupport(text); clear(); viewModel.notify("Tiket $ticket tersimpan lokal. Belum dikirim ke CS sungguhan.") } }
                         "demo" -> DemoScreen(state, busy, ::openJob, { selected -> viewModel.perform("Aksi lawan transaksi disimulasikan.") { (this as? DemoControls)?.simulateCounterparty(selected.id) ?: error("Mode simulasi tidak tersedia.") } }, { viewModel.perform("Data simulasi direset.") { (this as? DemoControls)?.resetDemo() ?: error("Mode simulasi tidak tersedia."); tab("home") } })
                         else -> {

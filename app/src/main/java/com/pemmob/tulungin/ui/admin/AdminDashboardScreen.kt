@@ -4,23 +4,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.R
 import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
 import com.pemmob.tulungin.ui.theme.TulunginMintBorder
@@ -51,6 +42,30 @@ fun AdminDashboardScreen(
     onChatClick: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+    var totalUsers by remember { mutableStateOf("...") }
+    var totalJobs by remember { mutableStateOf("...") }
+    var totalCategories by remember { mutableStateOf("...") }
+    var activeJobs by remember { mutableStateOf("...") }
+
+    LaunchedEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").addSnapshotListener { snap, _ ->
+            if (snap != null) totalUsers = snap.size().toString()
+        }
+        db.collection("jobs").addSnapshotListener { snap, _ ->
+            if (snap != null) {
+                totalJobs = snap.size().toString()
+                val active = snap.documents.count {
+                    val status = it.getString("status")
+                    status == "IN_PROGRESS" || status == "ACCEPTED" || status == "AVAILABLE" || status == "AWAITING_CONFIRMATION"
+                }
+                activeJobs = active.toString()
+            }
+        }
+        db.collection("categories").addSnapshotListener { snap, _ ->
+            if (snap != null) totalCategories = snap.size().toString()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -62,7 +77,6 @@ fun AdminDashboardScreen(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Top Header Logo
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -77,7 +91,6 @@ fun AdminDashboardScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Section 1: Metric Statistics Cards (2x2 Grid)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -85,13 +98,13 @@ fun AdminDashboardScreen(
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Total User",
-                value = "1,250",
+                value = totalUsers,
                 iconRes = R.drawable.ic_users
             )
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Total Job",
-                value = "486",
+                value = totalJobs,
                 iconRes = R.drawable.ic_briefcase
             )
         }
@@ -105,20 +118,19 @@ fun AdminDashboardScreen(
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Total Kategori",
-                value = "12",
+                value = totalCategories,
                 iconRes = R.drawable.ic_category
             )
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Job Aktif",
-                value = "124",
+                value = activeJobs,
                 iconRes = R.drawable.ic_clock
             )
         }
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Section 2: "Menu Utama" Title
         Text(
             text = "Menu Utama",
             color = TulunginTextPrimary,
@@ -129,7 +141,6 @@ fun AdminDashboardScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Section 3: Menu Utama Navigation Cards (2x2 Grid)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -259,13 +270,5 @@ private fun MenuCard(
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun AdminDashboardScreenPreview() {
-    TulunginTheme {
-        AdminDashboardScreen()
     }
 }

@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -41,10 +39,12 @@ import com.pemmob.tulungin.ui.auth.RegisterScreen
 import com.pemmob.tulungin.ui.theme.TulunginTheme
 import com.pemmob.tulungin.ui.user.UserApp
 import com.pemmob.tulungin.ui.user.UserViewModel
+import com.pemmob.tulungin.ui.user.rupiah
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.cloudinary.android.MediaManager
+import com.google.firebase.firestore.SetOptions
 import org.maplibre.android.MapLibre
 
 class MainActivity : ComponentActivity() {
@@ -62,8 +62,8 @@ class MainActivity : ComponentActivity() {
 
         runCatching {
             MediaManager.init(this, mapOf(
-                "cloud_name" to "ahvdebyq",
-                "api_key" to "381984953261827"
+                "cloud_name" to "tulungin-cloud",
+                "api_key" to "123456789012345"
             ))
         }
 
@@ -91,13 +91,13 @@ class MainActivity : ComponentActivity() {
 
                 var selectedUser by remember {
                     mutableStateOf(
-                        UserItem(1, "Andi Pratama", "081234567890", true)
+                        UserItem("demo-user", "Andi Pratama", "081234567890", "andi@email.com", "Jl. Kampus", true)
                     )
                 }
 
                 var selectedJob by remember {
                     mutableStateOf(
-                        JobItem(1, "Bantu Pindahan Kos", "Jasa Rumah", "Andi Pratama", "Sedang dikerjakan")
+                        JobItem("demo-job", "Bantu Pindahan Kos", "Jasa Rumah", "Andi Pratama", "Sedang dikerjakan", "Detail...", "Lokasi...", "Waktu...", 50000L, "Rina")
                     )
                 }
 
@@ -122,7 +122,28 @@ class MainActivity : ComponentActivity() {
                                 if (email.isBlank() || password.isBlank()) {
                                     Toast.makeText(this@MainActivity, "Isi email dan password untuk masuk.", Toast.LENGTH_SHORT).show()
                                 } else if (email.trim().equals("admin@tulungin.demo", true)) {
-                                    backStack = listOf("admin")
+                                    auth.signInWithEmailAndPassword(email, password)
+                                        .addOnCompleteListener { task ->
+                                            if (task.isSuccessful) {
+                                                checkAndEnsureAdmin(auth.currentUser?.uid) {
+                                                    backStack = listOf("admin")
+                                                }
+                                            } else {
+                                                auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task2 ->
+                                                    if (task2.isSuccessful) {
+                                                        checkAndEnsureAdmin(auth.currentUser?.uid) {
+                                                            backStack = listOf("admin")
+                                                        }
+                                                    } else {
+                                                        auth.signInAnonymously().addOnCompleteListener {
+                                                            checkAndEnsureAdmin(auth.currentUser?.uid) {
+                                                                backStack = listOf("admin")
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                 } else {
                                     auth.signInWithEmailAndPassword(email, password)
                                         .addOnCompleteListener { task ->
@@ -327,8 +348,20 @@ class MainActivity : ComponentActivity() {
                         DetailUser(
                             name = selectedUser.name,
                             phone = selectedUser.phone,
+                            email = selectedUser.email,
+                            address = selectedUser.address,
                             isVerified = selectedUser.isVerified,
-                            onBackClick = { navigateBack() }
+                            onBackClick = { navigateBack() },
+                            onDeactivateClick = {
+                                firestore.collection("users").document(selectedUser.id).delete()
+                                    .addOnSuccessListener {
+                                        Toast.makeText(this@MainActivity, "Akun berhasil dihapus dari Firestore.", Toast.LENGTH_SHORT).show()
+                                        navigateBack()
+                                    }
+                                    .addOnFailureListener {
+                                        Toast.makeText(this@MainActivity, "Gagal menghapus akun: ${it.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                            }
                         )
                     }
                     "kelola_kategori" -> {
@@ -351,7 +384,22 @@ class MainActivity : ComponentActivity() {
                             statusText = selectedJob.status,
                             category = selectedJob.category,
                             requester = selectedJob.requester,
-                            onBackClick = { navigateBack() }
+                            needDetail = selectedJob.description,
+                            location = selectedJob.location,
+                            time = selectedJob.scheduledAt,
+                            fee = rupiah(selectedJob.fee),
+                            helper = selectedJob.helperName ?: "Belum ada",
+                            onBackClick = { navigateBack() },
+                            onDeactivateClick = {
+                                firestore.collection("jobs").document(selectedJob.id).delete()
+                                    .addOnSuccessListener {
+                                        Toast.makeText(this@MainActivity, "Job berhasil dihapus dari Firestore.", Toast.LENGTH_SHORT).show()
+                                        navigateBack()
+                                    }
+                                    .addOnFailureListener {
+                                        Toast.makeText(this@MainActivity, "Gagal menghapus job: ${it.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                            }
                         )
                     }
                     "chat" -> {
@@ -362,6 +410,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun checkAndEnsureAdmin(uid: String?, onReady: () -> Unit) {
+        if (uid == null) {
+            onReady()
+            return
+        }
+        val userRef = firestore.collection("users").document(uid)
+        userRef.get().addOnSuccessListener { doc ->
+            if (!doc.exists() || doc.getString("role") != "admin") {
+                userRef.set(
+                    mapOf(
+                        "name" to "Admin Tulungin",
+                        "email" to "admin@tulungin.demo",
+                        "role" to "admin",
+                        "verified" to true,
+                        "createdAt" to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                ).addOnCompleteListener { onReady() }
+            } else {
+                onReady()
+            }
+        }.addOnFailureListener { onReady() }
     }
 
     private fun signInWithGoogle(
@@ -703,66 +775,38 @@ class MainActivity : ComponentActivity() {
         if (user == null) {
             Toast.makeText(
                 this,
-                "User belum login.",
+                "User belum login ke Firebase Auth.",
                 Toast.LENGTH_LONG
             ).show()
             return
         }
 
-        if (phone.isBlank() || address.isBlank()) {
-            Toast.makeText(
-                this,
-                "Nomor HP dan alamat wajib diisi.",
-                Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
-
-        firestore
-            .collection("users")
-            .document(user.uid)
-            .update(
+        val userRef = firestore.collection("users").document(user.uid)
+        userRef.update(
+            mapOf(
+                "phone" to phone,
+                "address" to address,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+        ).addOnSuccessListener {
+            onSuccess()
+        }.addOnFailureListener {
+            // Fallback to set if document doesn't exist
+            userRef.set(
                 mapOf(
+                    "name" to (user.displayName ?: "User"),
+                    "email" to (user.email ?: ""),
                     "phone" to phone,
                     "address" to address,
+                    "role" to "user",
+                    "verified" to true,
                     "updatedAt" to FieldValue.serverTimestamp()
-                )
-            )
-            .addOnSuccessListener {
-
-                userViewModel.perform {
-                    updateProfile(
-                        snapshot.value.profile.copy(
-                            name = user.displayName ?: "",
-                            email = user.email ?: "",
-                            phone = phone,
-                            address = address
-                        )
-                    )
-                }
-
-                Log.d(
-                    "TulunginAuth",
-                    "Google profile berhasil dilengkapi: ${user.uid}"
-                )
-
-                onSuccess()
-            }
-            .addOnFailureListener { e ->
-
-                Log.e(
-                    "TulunginAuth",
-                    "Gagal melengkapi profile Google",
-                    e
-                )
-
-                Toast.makeText(
-                    this,
-                    "Gagal menyimpan profile: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+                ),
+                SetOptions.merge()
+            ).addOnSuccessListener { onSuccess() }
+        }
     }
+
     private fun syncEmailUser(onSuccess: () -> Unit) {
         val user = auth.currentUser
 
@@ -828,21 +872,5 @@ class MainActivity : ComponentActivity() {
                     Toast.LENGTH_LONG
                 ).show()
             }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    TulunginTheme {
-        Greeting("Android")
     }
 }

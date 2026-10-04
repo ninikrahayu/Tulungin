@@ -3,63 +3,31 @@ package com.pemmob.tulungin.ui.admin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginInputBg
-import com.pemmob.tulungin.ui.theme.TulunginInputBorder
-import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginPlaceholder
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginSuccessContainer
-import com.pemmob.tulungin.ui.theme.TulunginSuccessContent
-import com.pemmob.tulungin.ui.theme.TulunginSuccessDot
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
-import com.pemmob.tulungin.ui.theme.TulunginWarningContainer
-import com.pemmob.tulungin.ui.theme.TulunginWarningContent
-import com.pemmob.tulungin.ui.theme.TulunginWarningDot
+import com.pemmob.tulungin.ui.theme.*
 
 data class UserItem(
-    val id: Int,
+    val id: String,
     val name: String,
     val phone: String,
+    val email: String,
+    val address: String,
     val isVerified: Boolean
 )
 
@@ -70,30 +38,39 @@ fun KelolaUser(
     onUserClick: (UserItem) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var userList by remember { mutableStateOf<List<UserItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Mock data pengguna (LazyColumn akan memuat hanya item yang berada di viewport layar saat scroll)
-    val userList = remember {
-        listOf(
-            UserItem(id = 1, name = "Andi Pratama", phone = "081234567890", isVerified = true),
-            UserItem(id = 2, name = "Siti Rahma", phone = "08987654321", isVerified = false),
-            UserItem(id = 3, name = "Budi Santoso", phone = "08102938475", isVerified = true),
-            UserItem(id = 4, name = "Rina Putri", phone = "082345678901", isVerified = false),
-            UserItem(id = 5, name = "Dimas Setiawan", phone = "082468013579", isVerified = true),
-            UserItem(id = 6, name = "Ahmad Fauzi", phone = "081398765432", isVerified = true),
-            UserItem(id = 7, name = "Dewi Lestari", phone = "085612345678", isVerified = false),
-            UserItem(id = 8, name = "Eko Prasetyo", phone = "087788990011", isVerified = true),
-            UserItem(id = 9, name = "Fitri Handayani", phone = "081911223344", isVerified = false),
-            UserItem(id = 10, name = "Gilang Ramadhan", phone = "082155667788", isVerified = true),
-            UserItem(id = 11, name = "Hendra Wijaya", phone = "083899001122", isVerified = true),
-            UserItem(id = 12, name = "Indah Permata", phone = "085233445566", isVerified = false)
-        )
+    LaunchedEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("users").addSnapshotListener { snapshot, error ->
+            loading = false
+            if (error != null) {
+                errorMessage = error.message
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                userList = snapshot.documents.map { doc ->
+                    UserItem(
+                        id = doc.id,
+                        name = doc.getString("name") ?: "Tanpa Nama",
+                        phone = doc.getString("phone") ?: "-",
+                        email = doc.getString("email") ?: "",
+                        address = doc.getString("address") ?: "",
+                        isVerified = doc.getBoolean("verified") ?: doc.getBoolean("isVerified") ?: true
+                    )
+                }
+            }
+        }
     }
 
-    val filteredUsers = remember(searchQuery) {
+    val filteredUsers = remember(searchQuery, userList) {
         if (searchQuery.isBlank()) userList
         else userList.filter {
             it.name.contains(searchQuery, ignoreCase = true) ||
-            it.phone.contains(searchQuery)
+            it.phone.contains(searchQuery) ||
+            it.email.contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -103,7 +80,6 @@ fun KelolaUser(
             .background(Color.White)
             .statusBarsPadding()
     ) {
-        // Top Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -130,7 +106,6 @@ fun KelolaUser(
             )
         }
 
-        // Search Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -140,11 +115,7 @@ fun KelolaUser(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = {
-                    Text(
-                        text = "Cari pengguna...",
-                        color = TulunginPlaceholder,
-                        fontSize = 14.sp
-                    )
+                    Text(text = "Cari pengguna...", color = TulunginPlaceholder, fontSize = 14.sp)
                 },
                 leadingIcon = {
                     Icon(
@@ -171,20 +142,38 @@ fun KelolaUser(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // User List (LazyColumn hanya memuat item yang tampil di viewport layar)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(
-                items = filteredUsers,
-                key = { user -> user.id }
-            ) { user ->
-                UserCardItem(
-                    user = user,
-                    onClick = { onUserClick(user) }
-                )
+        when {
+            loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Memuat data...", color = TulunginTextSecondary)
+                }
+            }
+            errorMessage != null -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Tidak dapat memuat data: $errorMessage", color = Color.Red)
+                }
+            }
+            filteredUsers.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Belum ada data.", color = TulunginTextSecondary)
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(
+                        items = filteredUsers,
+                        key = { user -> user.id }
+                    ) { user ->
+                        UserCardItem(
+                            user = user,
+                            onClick = { onUserClick(user) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -206,7 +195,6 @@ private fun UserCardItem(
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar Box
         Box(
             modifier = Modifier
                 .size(46.dp)
@@ -223,7 +211,6 @@ private fun UserCardItem(
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // Middle Details
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -241,11 +228,9 @@ private fun UserCardItem(
             )
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Status Badge
             StatusBadge(isVerified = user.isVerified)
         }
 
-        // Right Chevron
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
             contentDescription = null,
@@ -280,13 +265,5 @@ private fun StatusBadge(isVerified: Boolean) {
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium
         )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun KelolaUserPreview() {
-    TulunginTheme {
-        KelolaUser()
     }
 }
