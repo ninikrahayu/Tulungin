@@ -15,7 +15,8 @@ data class UserProfile(
     val email: String = "andi@email.com",
     val phone: String = "081234567890",
     val address: String = "Jl. Kampus No. 12, Purwokerto",
-    val verified: Boolean = true
+    val verified: Boolean = true,
+    val photoUrl: String = ""
 )
 
 data class UserJob(

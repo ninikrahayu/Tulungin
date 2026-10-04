@@ -2,8 +2,12 @@ package com.pemmob.tulungin.ui.user
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.TextButton
@@ -17,7 +21,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.pemmob.tulungin.data.user.*
+import kotlinx.coroutines.launch
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
@@ -108,7 +116,7 @@ internal fun MapLibrePickerView(
         factory = { mapView }
     ) { view ->
         view.getMapAsync { map ->
-            map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
+            map.setStyle("https://tiles.openfreemap.org/styles/liberty") { _ ->
                 val center = selectedLatLng ?: LatLng(-7.4214, 109.2312)
                 map.cameraPosition = CameraPosition.Builder()
                     .target(center)
@@ -145,12 +153,55 @@ internal fun EditProfileScreen(profile: UserProfile, busy: Boolean, onSave: (Use
     var email by rememberSaveable { mutableStateOf(profile.email) }
     var phone by rememberSaveable { mutableStateOf(profile.phone) }
     var address by rememberSaveable { mutableStateOf(profile.address) }
+    var photoUrl by rememberSaveable(profile.id) { mutableStateOf(profile.photoUrl) }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
+        if (selected != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val uriString = selected.toString()
+                MediaManager.get().upload(selected)
+                    .unsigned("tulungin_preset")
+                    .callback(object : UploadCallback {
+                        override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
+                            val secureUrl = resultData?.get("secure_url") as? String ?: uriString
+                            coroutineScope.launch {
+                                photoUrl = secureUrl
+                            }
+                        }
+                        override fun onStart(requestId: String?) {}
+                        override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
+                        override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+                        override fun onError(requestId: String?, error: ErrorInfo?) {
+                            photoUrl = uriString
+                        }
+                    })
+                    .dispatch()
+            }
+        }
+    }
+
     UserContent {
+        UText("Foto Profil", size = 16, weight = FontWeight.Bold)
+        Box(
+            Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { imagePicker.launch(arrayOf("image/*")) },
+            contentAlignment = Alignment.Center
+        ) {
+            if (photoUrl.isNotBlank()) {
+                ProofPreview(photoUrl, "Foto Profil", {})
+            } else {
+                UText("＋ Pilih Foto Profil", color = UserPrimary, weight = FontWeight.Medium)
+            }
+        }
+        UserButton("Ganti Foto Profil", secondary = true) { imagePicker.launch(arrayOf("image/*")) }
+
         UserField("Nama Lengkap", name, { name = it.take(100) })
         UserField("Email", email, { email = it.take(150) }, keyboard = KeyboardType.Email)
         UserField("Nomor HP", phone, { phone = it.take(16) }, keyboard = KeyboardType.Phone)
         UserField("Alamat Lengkap", address, { address = it.take(250) }, multiline = true)
-        UserButton("Simpan Perubahan", enabled = !busy) { onSave(profile.copy(name = name, email = email, phone = phone, address = address)) }
+        UserButton("Simpan Perubahan", enabled = !busy) { onSave(profile.copy(name = name, email = email, phone = phone, address = address, photoUrl = photoUrl)) }
     }
 }
 

@@ -12,6 +12,7 @@ internal object SnapshotCodec {
         put("profile", JSONObject().apply {
             put("id", state.profile.id); put("name", state.profile.name); put("email", state.profile.email)
             put("phone", state.profile.phone); put("address", state.profile.address); put("verified", state.profile.verified)
+            put("photoUrl", state.profile.photoUrl)
         })
         put("jobs", JSONArray(state.jobs.map { job -> JSONObject().apply {
             put("id", job.id); put("title", job.title); put("category", job.category); put("description", job.description)
@@ -44,7 +45,15 @@ internal object SnapshotCodec {
         require(root.getInt("schema") == 1)
         val p = root.getJSONObject("profile")
         return UserSnapshot(
-            profile = UserProfile(p.getString("id"), p.getString("name"), p.getString("email"), p.getString("phone"), p.getString("address"), p.getBoolean("verified")),
+            profile = UserProfile(
+                id = p.getString("id"),
+                name = p.getString("name"),
+                email = p.getString("email"),
+                phone = p.getString("phone"),
+                address = p.getString("address"),
+                verified = p.getBoolean("verified"),
+                photoUrl = p.optString("photoUrl", "")
+            ),
             jobs = root.getJSONArray("jobs").mapObjects { j -> UserJob(
                 id = j.getString("id"), title = j.getString("title"), category = j.getString("category"), description = j.getString("description"),
                 location = j.getString("location"),

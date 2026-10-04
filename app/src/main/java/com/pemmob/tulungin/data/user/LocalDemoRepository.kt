@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -367,6 +368,22 @@ class LocalDemoRepository(context: Context) : UserRepository {
         val firebaseUser = runCatching { auth.currentUser }.getOrNull()
         val currentId = firebaseUser?.uid ?: current.profile.id
         val updated = profile.copy(id = currentId, verified = current.profile.verified, name = profile.name.trim(), email = profile.email.trim(), phone = profile.phone.trim(), address = profile.address.trim())
+
+        runCatching {
+            firestore.collection("users").document(currentId).set(
+                mapOf(
+                    "name" to updated.name,
+                    "email" to updated.email,
+                    "phone" to updated.phone,
+                    "address" to updated.address,
+                    "photoUrl" to updated.photoUrl,
+                    "verified" to updated.verified,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ),
+                SetOptions.merge()
+            ).await()
+        }
+
         save(current.copy(profile = updated, jobs = current.jobs.map { j -> j.copy(
             requesterName = if (j.requesterId == updated.id) updated.name else j.requesterName,
             helperName = if (j.helperId == updated.id) updated.name else j.helperName
