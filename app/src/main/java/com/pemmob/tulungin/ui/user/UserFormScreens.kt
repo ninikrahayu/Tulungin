@@ -3,6 +3,7 @@ package com.pemmob.tulungin.ui.user
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -21,18 +22,67 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.cloudinary.android.MediaManager
-import com.cloudinary.android.callback.ErrorInfo
-import com.cloudinary.android.callback.UploadCallback
 import com.pemmob.tulungin.data.user.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private suspend fun uploadPhotoToCloudinary(
+    bytes: ByteArray,
+    cloudName: String = "ahvdebyq",
+    preset: String = "tulungin_preset"
+): Result<String> = withContext(Dispatchers.IO) {
+    runCatching {
+        val boundary = "----CloudinaryBoundary" + System.currentTimeMillis()
+        val url = URL("https://api.cloudinary.com/v1_1/$cloudName/image/upload")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+
+        val out = conn.outputStream
+        val writer = out.bufferedWriter(Charsets.UTF_8)
+
+        writer.write("--$boundary\r\n")
+        writer.write("Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n")
+        writer.write("$preset\r\n")
+        writer.flush()
+
+        writer.write("--$boundary\r\n")
+        writer.write("Content-Disposition: form-data; name=\"file\"; filename=\"profile.jpg\"\r\n")
+        writer.write("Content-Type: image/jpeg\r\n\r\n")
+        writer.flush()
+
+        out.write(bytes)
+        out.flush()
+
+        writer.write("\r\n--$boundary--\r\n")
+        writer.flush()
+        writer.close()
+
+        val responseCode = conn.responseCode
+        if (responseCode in 200..299) {
+            val json = conn.inputStream.bufferedReader().use { it.readText() }
+            val jsonObj = JSONObject(json)
+            jsonObj.getString("secure_url")
+        } else {
+            val errJson = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+            val errMsg = runCatching { JSONObject(errJson).getJSONObject("error").getString("message") }.getOrDefault(errJson)
+            error("Cloudinary ($responseCode): $errMsg")
+        }
+    }
+}
 
 @Composable
 internal fun CreateRequestScreen(busy: Boolean, onPublish: (JobDraft) -> Unit, onError: (String) -> Unit) {
@@ -154,31 +204,34 @@ internal fun EditProfileScreen(profile: UserProfile, busy: Boolean, onSave: (Use
     var phone by rememberSaveable { mutableStateOf(profile.phone) }
     var address by rememberSaveable { mutableStateOf(profile.address) }
     var photoUrl by rememberSaveable(profile.id) { mutableStateOf(profile.photoUrl) }
+    var isUploadingPhoto by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
         if (selected != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                val uriString = selected.toString()
-                MediaManager.get().upload(selected)
-                    .unsigned("tulungin_preset")
-                    .callback(object : UploadCallback {
-                        override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
-                            val secureUrl = resultData?.get("secure_url") as? String ?: uriString
-                            coroutineScope.launch {
-                                photoUrl = secureUrl
-                            }
-                        }
-                        override fun onStart(requestId: String?) {}
-                        override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
-                        override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
-                        override fun onError(requestId: String?, error: ErrorInfo?) {
-                            photoUrl = uriString
-                        }
-                    })
-                    .dispatch()
+            coroutineScope.launch {
+                isUploadingPhoto = true
+                val bytes = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        context.contentResolver.openInputStream(selected)?.use { it.readBytes() }
+                    }.getOrNull()
+                }
+
+                if (bytes != null && bytes.isNotEmpty()) {
+                    val result = uploadPhotoToCloudinary(bytes)
+                    isUploadingPhoto = false
+                    result.onSuccess { secureUrl ->
+                        photoUrl = secureUrl
+                        Toast.makeText(context, "Foto profil berhasil diunggah.", Toast.LENGTH_SHORT).show()
+                    }.onFailure { e ->
+                        Toast.makeText(context, "Gagal mengunggah foto: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    isUploadingPhoto = false
+                    Toast.makeText(context, "Gagal membaca berkas foto dari galeri.", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -186,22 +239,27 @@ internal fun EditProfileScreen(profile: UserProfile, busy: Boolean, onSave: (Use
     UserContent {
         UText("Foto Profil", size = 16, weight = FontWeight.Bold)
         Box(
-            Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable { imagePicker.launch(arrayOf("image/*")) },
+            Modifier.fillMaxWidth().height(140.dp).background(UserSurface, RoundedCornerShape(16.dp)).border(1.dp, UserOutline, RoundedCornerShape(16.dp)).clickable(enabled = !isUploadingPhoto) { imagePicker.launch(arrayOf("image/*")) },
             contentAlignment = Alignment.Center
         ) {
-            if (photoUrl.isNotBlank()) {
+            if (isUploadingPhoto) {
+                UText("Mengunggah foto ke Cloudinary...", color = UserPrimary, weight = FontWeight.Medium)
+            } else if (photoUrl.isNotBlank()) {
                 ProofPreview(photoUrl, "Foto Profil", {})
             } else {
                 UText("＋ Pilih Foto Profil", color = UserPrimary, weight = FontWeight.Medium)
             }
         }
-        UserButton("Ganti Foto Profil", secondary = true) { imagePicker.launch(arrayOf("image/*")) }
+        UserButton(if (isUploadingPhoto) "Mengunggah..." else "Ganti Foto Profil", secondary = true, enabled = !isUploadingPhoto) { imagePicker.launch(arrayOf("image/*")) }
 
         UserField("Nama Lengkap", name, { name = it.take(100) })
         UserField("Email", email, { email = it.take(150) }, keyboard = KeyboardType.Email)
         UserField("Nomor HP", phone, { phone = it.take(16) }, keyboard = KeyboardType.Phone)
         UserField("Alamat Lengkap", address, { address = it.take(250) }, multiline = true)
-        UserButton("Simpan Perubahan", enabled = !busy) { onSave(profile.copy(name = name, email = email, phone = phone, address = address, photoUrl = photoUrl)) }
+        UserButton("Simpan Perubahan", enabled = !busy && !isUploadingPhoto) {
+            val finalPhotoUrl = if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) photoUrl else profile.photoUrl
+            onSave(profile.copy(name = name, email = email, phone = phone, address = address, photoUrl = finalPhotoUrl))
+        }
     }
 }
 
