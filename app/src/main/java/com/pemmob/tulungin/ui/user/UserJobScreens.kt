@@ -1,6 +1,7 @@
 package com.pemmob.tulungin.ui.user
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -72,7 +73,9 @@ internal fun JobDetailScreen(
     ) { isGranted ->
         if (isGranted) {
             runCatching {
-                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                @SuppressLint("MissingPermission")
+                val task = fusedLocationClient.lastLocation
+                task.addOnSuccessListener { location ->
                     if (location != null) {
                         val hLat = location.latitude
                         val hLng = location.longitude
@@ -256,8 +259,7 @@ internal fun ActiveJobScreen(
     onStart: () -> Unit,
     onChat: () -> Unit,
     onCompleteFlow: () -> Unit,
-    onMap: () -> Unit,
-    onDemo: () -> Unit
+    onMap: () -> Unit
 ) {
     val requester = job.requesterId == profile.id
     val helper = job.helperId == profile.id
@@ -286,9 +288,6 @@ internal fun ActiveJobScreen(
             }
         }
         if (job.status == JobStatus.AVAILABLE && requester) Notice("Menunggu Penulung", "Permintaanmu sudah diterbitkan. Penulung dapat melamar dan kamu dapat memilihnya.")
-        if (job.status == JobStatus.AVAILABLE && requester || job.status == JobStatus.IN_PROGRESS && requester) {
-            UserButton("Simulasikan lawan transaksi", secondary = true, onClick = onDemo)
-        }
     }
 }
 
@@ -478,7 +477,7 @@ internal fun HistoryDetailScreen(job: UserJob, profile: UserProfile, onReview: (
         DetailCard("Upah Jasa", rupiah(job.fee))
         if (job.status == JobStatus.COMPLETED) {
             Notice("Penyelesaian", "Kedua bukti telah dikirim dan dikonfirmasi selesai.")
-            if (job.rating > 0) Notice("Ulasan", "${"★".repeat(job.rating)}${"☆".repeat(5 - job.rating)}  ${job.review}")
+            if (job.rating > 0) Notice("Wlasan", "${"★".repeat(job.rating)}${"☆".repeat(5 - job.rating)}  ${job.review}")
             else if (job.requesterId == profile.id) UserButton("Beri Ulasan", onClick = onReview)
             if (job.requesterId == profile.id && !job.paid) UserButton("Pembayaran", onClick = onPay)
             if (job.paid) UText("Sudah dibayar · ${job.paymentMethod.ifBlank { "Simulasi" }}", size = 12, color = UserSecondary)

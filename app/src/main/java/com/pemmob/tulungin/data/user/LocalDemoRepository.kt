@@ -14,7 +14,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.tasks.await
 
-class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
+/**
+ * Production implementation of UserRepository synchronized with Cloud Firestore.
+ */
+class LocalDemoRepository(context: Context) : UserRepository {
     private val appContext = context.applicationContext
     private val auth by lazy {
         if (FirebaseApp.getApps(appContext).isEmpty()) {
@@ -51,7 +54,7 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         return when (raw.lowercase()) {
             "open", "available" -> JobStatus.AVAILABLE
             "accepted" -> JobStatus.ACCEPTED
-            "in_progress", "inprogress" -> JobStatus.IN_PROGRESS
+            "in_progress", "inprogress", "progress" -> JobStatus.IN_PROGRESS
             "awaiting_confirmation", "awaiting" -> JobStatus.AWAITING_CONFIRMATION
             "completed" -> JobStatus.COMPLETED
             "cancelled" -> JobStatus.CANCELLED
@@ -170,6 +173,9 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         save(current.copy(jobs = updatedJobs))
     }
 
+    /**
+     * Creates a new job request and persists it to Cloud Firestore.
+     */
     override suspend fun createJob(draft: JobDraft): String = mutex.withLock {
         require(draft.title.trim().length >= 4) { "Judul minimal 4 karakter." }
         require(draft.category in JobRules.categories) { "Pilih kategori bantuan." }
@@ -285,6 +291,9 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         save(current.copy(applications = current.applications + app))
     }
 
+    /**
+     * Selects a helper application, updating job status to IN_PROGRESS in Firestore.
+     */
     override suspend fun selectApplication(jobId: String, applicationId: String) = mutex.withLock {
         val current = snapshot.value
         val firebaseUser = runCatching { auth.currentUser }.getOrNull()
@@ -382,15 +391,4 @@ class LocalDemoRepository(context: Context) : UserRepository, DemoControls {
         save(current.copy(tickets = current.tickets + SupportTicket(id, message.trim())))
         id
     }
-
-    override suspend fun simulateCounterparty(jobId: String) = changeJob(jobId) { job, profile ->
-        when {
-            job.requesterId == profile.id && job.status == JobStatus.AVAILABLE -> job.copy(helperId = "demo-helper", helperName = "Rina", status = JobStatus.IN_PROGRESS)
-            job.requesterId == profile.id && job.status == JobStatus.IN_PROGRESS -> job.copy(status = JobStatus.AWAITING_CONFIRMATION, proofUri = "demo://bukti", proofName = "Bukti foto pekerjaan")
-            job.helperId == profile.id && job.status == JobStatus.AWAITING_CONFIRMATION -> JobRules.complete(job, job.requesterId)
-            else -> error("Tidak ada langkah lawan transaksi yang perlu disimulasikan.")
-        }
-    }
-
-    override suspend fun resetDemo() = mutex.withLock { save(DemoFixtures.initial()) }
 }

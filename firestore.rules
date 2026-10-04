@@ -2,41 +2,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Fungsi bantuan untuk cek autentikasi login
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Fungsi bantuan untuk mendeteksi apakah user yang login memiliki role 'admin' di dokumen users
     function isAdmin() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // USERS COLLECTION
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // User biasa hanya bisa edit profil sendiri, Admin bisa mengelola semua user
       allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // Hanya Admin yang dapat menghapus akun user dari database
       allow delete: if isAdmin();
     }
 
-    // JOBS COLLECTION
     match /jobs/{jobId} {
       allow read: if isAuthenticated();
 
-      // Pembuat job bisa membuat job baru dengan status AVAILABLE, atau Admin
       allow create: if isAuthenticated() && (
         (request.resource.data.requesterId == request.auth.uid && request.resource.data.status == 'AVAILABLE')
         || isAdmin()
       );
 
       allow update: if isAuthenticated() && (
-        isAdmin() // Admin memiliki hak akses penuh untuk mengelola job
+        isAdmin()
         ||
-        // 1. Helper mengambil/claim job (AVAILABLE -> IN_PROGRESS)
         (
           resource.data.status == 'AVAILABLE'
           && resource.data.helperId == null
@@ -47,7 +39,6 @@ service cloud.firestore {
           && request.resource.data.fee == resource.data.fee
         )
         ||
-        // 2. Helper mengunggah bukti pekerjaan
         (
           resource.data.helperId == request.auth.uid
           && request.resource.data.helperId == resource.data.helperId
@@ -57,7 +48,6 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['proofUri', 'proofName', 'status', 'helperConfirmed', 'requesterConfirmed', 'updatedAt'])
         )
         ||
-        // 3. Requester mengunggah bukti pembayaran
         (
           resource.data.requesterId == request.auth.uid
           && request.resource.data.requesterId == resource.data.requesterId
@@ -67,7 +57,6 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentProofUri', 'paymentProofName', 'status', 'helperConfirmed', 'requesterConfirmed', 'updatedAt'])
         )
         ||
-        // 4. Konfirmasi Selesai oleh pihak terlibat setelah kedua bukti tersedia
         (
           (resource.data.requesterId == request.auth.uid || resource.data.helperId == request.auth.uid)
           && resource.data.proofUri != null
@@ -79,20 +68,24 @@ service cloud.firestore {
         )
       );
 
-      // Hapus job: Pemilik saat status AVAILABLE, atau Admin
       allow delete: if isAuthenticated() && (
         (resource.data.requesterId == request.auth.uid && resource.data.status == 'AVAILABLE')
         || isAdmin()
       );
+
+      // Job Messages (Requester ↔ Helper Real-Time Chat)
+      match /messages/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
-    // CATEGORIES COLLECTION (Hanya Admin yang dapat menambah/edit/hapus kategori)
     match /categories/{categoryId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
 
-    // APPLICATIONS COLLECTION
     match /applications/{appId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.applicantId == request.auth.uid;
@@ -103,7 +96,6 @@ service cloud.firestore {
       );
     }
 
-    // CONVERSATIONS & MESSAGES (Real-Time Chat User ↔ Admin)
     match /conversations/{conversationId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow create, update: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());

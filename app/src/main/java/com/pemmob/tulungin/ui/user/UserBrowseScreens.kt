@@ -156,7 +156,7 @@ internal fun ProfileScreen(profile: UserProfile, onNavigate: (String) -> Unit, o
         UserButton("Edit Profil", onClick = { onNavigate("edit_profile") })
         Spacer(Modifier.height(12.dp))
         UText("Layanan lainnya", size = 16, weight = FontWeight.Bold)
-        listOf("Chat" to "chats", "Bantuan" to "support", "Mode Simulasi" to "demo").forEach { (label, route) ->
+        listOf("Chat" to "chats", "Bantuan" to "support").forEach { (label, route) ->
             UserCard(onClick = { onNavigate(route) }) { UText(label, color = UserPrimary, weight = FontWeight.SemiBold) }
         }
         UserButton("Keluar", secondary = true, onClick = onLogout)

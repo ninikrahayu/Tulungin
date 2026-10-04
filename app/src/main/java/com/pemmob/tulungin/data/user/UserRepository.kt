@@ -2,6 +2,9 @@ package com.pemmob.tulungin.data.user
 
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * Repository interface for Tulungin user and job data operations backed by Cloud Firestore and Cloudinary.
+ */
 interface UserRepository {
     val snapshot: StateFlow<UserSnapshot>
     suspend fun createJob(draft: JobDraft): String
@@ -17,9 +20,4 @@ interface UserRepository {
     suspend fun updateProfile(profile: UserProfile)
     suspend fun sendMessage(jobId: String, text: String)
     suspend fun sendSupport(message: String): String
-}
-
-interface DemoControls {
-    suspend fun simulateCounterparty(jobId: String)
-    suspend fun resetDemo()
 }
