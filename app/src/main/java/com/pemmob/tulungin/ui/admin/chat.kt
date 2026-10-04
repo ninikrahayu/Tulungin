@@ -3,22 +3,7 @@ package com.pemmob.tulungin.ui.admin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,20 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,41 +23,33 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginDivider
-import com.pemmob.tulungin.ui.theme.TulunginInputBg
-import com.pemmob.tulungin.ui.theme.TulunginInputBorder
-import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
-import com.pemmob.tulungin.ui.theme.TulunginMintBackground
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginMintSoft
-import com.pemmob.tulungin.ui.theme.TulunginPlaceholder
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.*
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 data class ConversationItem(
-    val id: Int,
+    val id: String,
+    val userId: String,
     val name: String,
     val topic: String,
     val lastMessage: String,
     val time: String,
-    val hasUnread: Boolean,
-    val initial: String = name.firstOrNull()?.uppercase() ?: ""
+    val initial: String = name.firstOrNull()?.uppercase() ?: "U"
 )
 
 data class ChatMessage(
-    val id: Int,
+    val id: String,
     val message: String,
     val timestamp: String,
-    val isFromAdmin: Boolean
+    val isFromAdmin: Boolean,
+    val senderName: String
 )
 
 @Composable
@@ -94,31 +59,39 @@ fun ChatScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedConversation by remember { mutableStateOf<ConversationItem?>(null) }
+    var conversationList by remember { mutableStateOf<List<ConversationItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val conversationList = remember {
-        listOf(
-            ConversationItem(
-                id = 1,
-                name = "Siti Rahma",
-                topic = "Bantuan Akun",
-                lastMessage = "Saya butuh bantuan terkait akun.",
-                time = "10.42",
-                hasUnread = true,
-                initial = "S"
-            ),
-            ConversationItem(
-                id = 2,
-                name = "Andi Pratama",
-                topic = "Bantu Pindahan Kos",
-                lastMessage = "Terima kasih atas bantuannya.",
-                time = "Kemarin",
-                hasUnread = false,
-                initial = "A"
-            )
-        )
+    LaunchedEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("conversations")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                loading = false
+                if (error != null) {
+                    errorMessage = error.message
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val timeFormat = SimpleDateFormat("HH.mm", Locale.getDefault())
+                    conversationList = snapshot.documents.map { doc ->
+                        val updatedAt = doc.getTimestamp("updatedAt")?.toDate() ?: Date()
+                        ConversationItem(
+                            id = doc.id,
+                            userId = doc.getString("userId") ?: "",
+                            name = doc.getString("userName") ?: "Pengguna",
+                            topic = doc.getString("userEmail") ?: "Bantuan User",
+                            lastMessage = doc.getString("lastMessage") ?: "Belum ada pesan",
+                            time = timeFormat.format(updatedAt),
+                            initial = (doc.getString("userName") ?: "U").firstOrNull()?.uppercase() ?: "U"
+                        )
+                    }
+                }
+            }
     }
 
-    val filteredConversations = remember(searchQuery) {
+    val filteredConversations = remember(searchQuery, conversationList) {
         if (searchQuery.isBlank()) {
             conversationList
         } else {
@@ -133,6 +106,7 @@ fun ChatScreen(
     if (selectedConversation != null) {
         val currentConv = selectedConversation!!
         ChatDetailScreen(
+            conversationId = currentConv.id,
             userName = currentConv.name,
             topic = currentConv.topic,
             onBackClick = { selectedConversation = null }
@@ -144,7 +118,6 @@ fun ChatScreen(
                 .background(Color.White)
                 .statusBarsPadding()
         ) {
-            // Top Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -171,14 +144,12 @@ fun ChatScreen(
                 )
             }
 
-            // Faint horizontal divider under Top Header
             HorizontalDivider(
                 modifier = Modifier.fillMaxWidth(),
                 thickness = 1.dp,
                 color = TulunginDivider
             )
 
-            // Search Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -188,11 +159,7 @@ fun ChatScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = {
-                        Text(
-                            text = "Cari percakapan...",
-                            color = TulunginPlaceholder,
-                            fontSize = 14.sp
-                        )
+                        Text(text = "Cari percakapan...", color = TulunginPlaceholder, fontSize = 14.sp)
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
@@ -209,7 +176,6 @@ fun ChatScreen(
                 )
             }
 
-            // Section Title: "Daftar Percakapan"
             Text(
                 text = "Daftar Percakapan",
                 color = TulunginTextPrimary,
@@ -220,20 +186,38 @@ fun ChatScreen(
                     .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp)
             )
 
-            // Conversation List
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                items(
-                    items = filteredConversations,
-                    key = { it.id }
-                ) { conversation ->
-                    ConversationCardItem(
-                        conversation = conversation,
-                        onClick = { selectedConversation = conversation }
-                    )
+            when {
+                loading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Memuat percakapan...", color = TulunginTextSecondary)
+                    }
+                }
+                errorMessage != null -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Gagal memuat chat: $errorMessage", color = Color.Red)
+                    }
+                }
+                filteredConversations.isEmpty() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Belum ada percakapan.", color = TulunginTextSecondary)
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(
+                            items = filteredConversations,
+                            key = { it.id }
+                        ) { conversation ->
+                            ConversationCardItem(
+                                conversation = conversation,
+                                onClick = { selectedConversation = conversation }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -256,7 +240,6 @@ private fun ConversationCardItem(
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar Circle
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -273,11 +256,9 @@ private fun ConversationCardItem(
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // Content Column
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            // Row 1: Name & Timestamp
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -298,30 +279,15 @@ private fun ConversationCardItem(
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // Row 2: Topic & Unread Dot Indicator
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = conversation.topic,
-                    color = TulunginPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (conversation.hasUnread) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(TulunginPrimary, CircleShape)
-                    )
-                }
-            }
+            Text(
+                text = conversation.topic,
+                color = TulunginPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
 
             Spacer(modifier = Modifier.height(3.dp))
 
-            // Row 3: Last Message Snippet
             Text(
                 text = conversation.lastMessage,
                 color = TulunginTextSecondary,
@@ -334,31 +300,43 @@ private fun ConversationCardItem(
 
 @Composable
 fun ChatDetailScreen(
-    userName: String = "Siti Rahma",
-    topic: String = "Bantuan Akun",
+    conversationId: String,
+    userName: String = "Pengguna",
+    topic: String = "Bantuan",
     onBackClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
 
-    var messages by remember {
-        mutableStateOf(
-            listOf(
-                ChatMessage(
-                    id = 1,
-                    message = "Saya butuh bantuan terkait akun.",
-                    timestamp = "10.41",
-                    isFromAdmin = false
-                ),
-                ChatMessage(
-                    id = 2,
-                    message = "Baik, kami bantu periksa.",
-                    timestamp = "10.42",
-                    isFromAdmin = true
-                )
-            )
-        )
+    val auth = FirebaseAuth.getInstance()
+    val adminId = auth.currentUser?.uid ?: "admin"
+
+    LaunchedEffect(conversationId) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("conversations").document(conversationId)
+            .collection("messages")
+            .orderBy("createdAt", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, error ->
+                loading = false
+                if (error != null) return@addSnapshotListener
+                if (snapshot != null) {
+                    val timeFormat = SimpleDateFormat("HH.mm", Locale.getDefault())
+                    messages = snapshot.documents.map { doc ->
+                        val date = doc.getTimestamp("createdAt")?.toDate() ?: Date()
+                        val role = doc.getString("senderRole") ?: "user"
+                        ChatMessage(
+                            id = doc.id,
+                            message = doc.getString("message") ?: "",
+                            timestamp = timeFormat.format(date),
+                            isFromAdmin = role == "admin",
+                            senderName = doc.getString("senderName") ?: ""
+                        )
+                    }
+                }
+            }
     }
 
     LaunchedEffect(messages.size) {
@@ -368,16 +346,31 @@ fun ChatDetailScreen(
     }
 
     fun sendMessage() {
-        if (inputText.isNotBlank()) {
-            val currentTime = SimpleDateFormat("HH.mm", Locale.getDefault()).format(Date())
-            messages = messages + ChatMessage(
-                id = messages.size + 1,
-                message = inputText.trim(),
-                timestamp = currentTime,
-                isFromAdmin = true
+        if (inputText.isBlank()) return
+        val text = inputText.trim()
+        inputText = ""
+
+        val db = FirebaseFirestore.getInstance()
+        val msgRef = db.collection("conversations").document(conversationId).collection("messages").document()
+        val msgData = mapOf(
+            "id" to msgRef.id,
+            "conversationId" to conversationId,
+            "senderId" to adminId,
+            "senderRole" to "admin",
+            "senderName" to "Admin Tulungin",
+            "message" to text,
+            "createdAt" to FieldValue.serverTimestamp(),
+            "read" to false
+        )
+
+        msgRef.set(msgData)
+        db.collection("conversations").document(conversationId).update(
+            mapOf(
+                "lastMessage" to text,
+                "lastMessageAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
             )
-            inputText = ""
-        }
+        )
     }
 
     Column(
@@ -386,7 +379,6 @@ fun ChatDetailScreen(
             .background(Color.White)
             .statusBarsPadding()
     ) {
-        // Top Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -413,14 +405,12 @@ fun ChatDetailScreen(
             )
         }
 
-        // Faint horizontal divider under Top Header
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 1.dp,
             color = TulunginDivider
         )
 
-        // Subtitle Context (e.g. "Siti Rahma · Bantuan Akun")
         Text(
             text = "$userName · $topic",
             color = TulunginTextSecondary,
@@ -430,24 +420,32 @@ fun ChatDetailScreen(
                 .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 8.dp)
         )
 
-        // Chat Messages List
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(
-                items = messages,
-                key = { it.id }
-            ) { message ->
-                ChatBubbleItem(message = message)
+        if (loading) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("Memuat pesan...", color = TulunginTextSecondary)
+            }
+        } else if (messages.isEmpty()) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("Belum ada pesan.", color = TulunginTextSecondary)
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(
+                    items = messages,
+                    key = { it.id }
+                ) { message ->
+                    ChatBubbleItem(message = message)
+                }
             }
         }
 
-        // Bottom Input Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -456,7 +454,6 @@ fun ChatDetailScreen(
                 .imePadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Text Input Box
             BasicTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
@@ -493,7 +490,6 @@ fun ChatDetailScreen(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // "Kirim" Button
             Button(
                 onClick = { sendMessage() },
                 modifier = Modifier
@@ -562,12 +558,4 @@ fun Chat(
         modifier = modifier,
         onBackClick = onBackClick
     )
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun ChatPreview() {
-    TulunginTheme {
-        ChatScreen()
-    }
 }
