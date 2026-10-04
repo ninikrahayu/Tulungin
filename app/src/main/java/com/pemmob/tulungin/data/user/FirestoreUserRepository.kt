@@ -17,9 +17,10 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
 /**
- * Production implementation of UserRepository synchronized with Cloud Firestore.
+ * Production implementation of UserRepository backed strictly by Cloud Firestore.
+ * No dummy or mock fallbacks are used.
  */
-class LocalDemoRepository(context: Context) : UserRepository {
+class FirestoreUserRepository(context: Context) : UserRepository {
     private val appContext = context.applicationContext
     private val auth by lazy {
         if (FirebaseApp.getApps(appContext).isEmpty()) {
@@ -30,26 +31,13 @@ class LocalDemoRepository(context: Context) : UserRepository {
     private val firestore by lazy {
         FirebaseFirestore.getInstance()
     }
-    private val preferences = appContext.getSharedPreferences("tulungin_user_demo_v1", Context.MODE_PRIVATE)
     private val mutex = Mutex()
-    private val mutableSnapshot = MutableStateFlow(
-        run {
-            val decoded = preferences.getString("snapshot", null)?.let { runCatching { SnapshotCodec.decode(it) }.getOrNull() } ?: DemoFixtures.initial()
-            val firebaseUser = runCatching { auth.currentUser }.getOrNull()
-            if (firebaseUser != null) {
-                decoded.copy(profile = decoded.profile.copy(
-                    id = firebaseUser.uid,
-                    email = firebaseUser.email ?: decoded.profile.email,
-                    name = firebaseUser.displayName?.takeIf { it.isNotBlank() } ?: decoded.profile.name
-                ))
-            } else {
-                decoded
-            }
-        }
-    )
+    private val mutableSnapshot = MutableStateFlow(UserSnapshot())
     override val snapshot: StateFlow<UserSnapshot> = mutableSnapshot.asStateFlow()
+
     private var jobsListener: ListenerRegistration? = null
     private var applicationsListener: ListenerRegistration? = null
+    private var userListener: ListenerRegistration? = null
 
     private fun parseJobStatus(raw: String?): JobStatus {
         if (raw == null) return JobStatus.AVAILABLE
@@ -66,6 +54,11 @@ class LocalDemoRepository(context: Context) : UserRepository {
 
     init {
         runCatching {
+            val currentUser = auth.currentUser
+            if (currentUser != null) {
+                listenToUser(currentUser.uid)
+            }
+
             jobsListener = firestore.collection("jobs")
                 .addSnapshotListener { querySnapshot, error ->
                     if (error != null) return@addSnapshotListener
@@ -104,7 +97,7 @@ class LocalDemoRepository(context: Context) : UserRepository {
                         }
                     }
                     val current = snapshot.value
-                    save(current.copy(jobs = firestoreJobs))
+                    mutableSnapshot.value = current.copy(jobs = firestoreJobs)
                 }
 
             applicationsListener = firestore.collection("applications")
@@ -126,24 +119,27 @@ class LocalDemoRepository(context: Context) : UserRepository {
                         }
                     }
                     val current = snapshot.value
-                    save(current.copy(applications = firestoreApps))
+                    mutableSnapshot.value = current.copy(applications = firestoreApps)
                 }
         }
     }
 
-    private fun save(state: UserSnapshot) {
-        val firebaseUser = runCatching { auth.currentUser }.getOrNull()
-        val syncedState = if (firebaseUser != null && state.profile.id != firebaseUser.uid) {
-            state.copy(profile = state.profile.copy(
-                id = firebaseUser.uid,
-                email = firebaseUser.email ?: state.profile.email,
-                name = firebaseUser.displayName?.takeIf { it.isNotBlank() } ?: state.profile.name
-            ))
-        } else {
-            state
-        }
-        preferences.edit().putString("snapshot", SnapshotCodec.encode(syncedState)).apply()
-        mutableSnapshot.value = syncedState
+    private fun listenToUser(userId: String) {
+        userListener?.remove()
+        userListener = firestore.collection("users").document(userId)
+            .addSnapshotListener { doc, error ->
+                if (error != null || doc == null || !doc.exists()) return@addSnapshotListener
+                val profile = UserProfile(
+                    id = userId,
+                    name = doc.getString("name") ?: "",
+                    email = doc.getString("email") ?: "",
+                    phone = doc.getString("phone") ?: "",
+                    address = doc.getString("address") ?: "",
+                    verified = doc.getBoolean("verified") ?: false,
+                    photoUrl = doc.getString("photoUrl") ?: ""
+                )
+                mutableSnapshot.value = snapshot.value.copy(profile = profile)
+            }
     }
 
     private suspend fun changeJob(id: String, transform: (UserJob, UserProfile) -> UserJob) = mutex.withLock {
@@ -172,7 +168,7 @@ class LocalDemoRepository(context: Context) : UserRepository {
             ).await()
         }
 
-        save(current.copy(jobs = updatedJobs))
+        mutableSnapshot.value = current.copy(jobs = updatedJobs)
     }
 
     /**
@@ -185,16 +181,12 @@ class LocalDemoRepository(context: Context) : UserRepository {
         require(draft.location.isNotBlank() && draft.scheduledAt.isNotBlank()) { "Lengkapi lokasi serta waktu." }
         require(draft.fee in 1000..100000000) { "Upah harus antara Rp1.000 dan Rp100.000.000." }
 
-        val firebaseUser = runCatching { auth.currentUser }.getOrNull()
-        val current = snapshot.value
-        val userId = firebaseUser?.uid ?: current.profile.id
+        val firebaseUser = auth.currentUser ?: error("User belum login.")
+        val userId = firebaseUser.uid
+        listenToUser(userId)
         val id = runCatching { firestore.collection("jobs").document().id }.getOrNull() ?: UUID.randomUUID().toString()
 
-        val requesterName = if (current.profile.id == userId && current.profile.name.isNotBlank()) {
-            current.profile.name
-        } else {
-            firebaseUser?.displayName ?: current.profile.name.ifBlank { "Pengguna" }
-        }
+        val requesterName = firebaseUser.displayName?.takeIf { it.isNotBlank() } ?: "Pengguna"
 
         val job = UserJob(
             id = id,
@@ -240,25 +232,16 @@ class LocalDemoRepository(context: Context) : UserRepository {
             "createdAt" to FieldValue.serverTimestamp()
         )
 
-        runCatching {
-            firestore.collection("jobs").document(id).set(jobData).await()
-        }
-
-        val updatedProfile = current.profile.copy(
-            id = userId,
-            name = requesterName,
-            email = firebaseUser?.email ?: current.profile.email
-        )
-
-        save(current.copy(profile = updatedProfile, jobs = listOf(job) + current.jobs))
+        firestore.collection("jobs").document(id).set(jobData).await()
         id
     }
 
-    override suspend fun applyJob(jobId: String) = mutex.withLock {
+    override suspend fun applyJob(jobId: String): Unit = mutex.withLock {
+        val firebaseUser = auth.currentUser ?: error("User belum login.")
+        val userId = firebaseUser.uid
+        listenToUser(userId)
         val current = snapshot.value
-        val firebaseUser = runCatching { auth.currentUser }.getOrNull()
-        val userId = firebaseUser?.uid ?: current.profile.id
-        val userName = current.profile.name.ifBlank { firebaseUser?.displayName ?: "Pengguna" }
+        val userName = current.profile.name.ifBlank { firebaseUser.displayName ?: "Pengguna" }
 
         val job = current.jobs.firstOrNull { it.id == jobId } ?: error("Job tidak ditemukan.")
         require(job.requesterId != userId) { "Peminta tidak dapat melamar job sendiri." }
@@ -269,14 +252,6 @@ class LocalDemoRepository(context: Context) : UserRepository {
         }
 
         val appId = runCatching { firestore.collection("applications").document().id }.getOrNull() ?: UUID.randomUUID().toString()
-        val app = UserApplication(
-            id = appId,
-            jobId = jobId,
-            applicantId = userId,
-            applicantName = userName,
-            status = "pending"
-        )
-
         val appData = hashMapOf(
             "id" to appId,
             "jobId" to jobId,
@@ -286,20 +261,17 @@ class LocalDemoRepository(context: Context) : UserRepository {
             "createdAt" to FieldValue.serverTimestamp()
         )
 
-        runCatching {
-            firestore.collection("applications").document(appId).set(appData).await()
-        }
-
-        save(current.copy(applications = current.applications + app))
+        firestore.collection("applications").document(appId).set(appData).await()
     }
 
     /**
      * Selects a helper application, updating job status to IN_PROGRESS in Firestore.
      */
-    override suspend fun selectApplication(jobId: String, applicationId: String) = mutex.withLock {
+    override suspend fun selectApplication(jobId: String, applicationId: String): Unit = mutex.withLock {
+        val firebaseUser = auth.currentUser ?: error("User belum login.")
+        val userId = firebaseUser.uid
+        listenToUser(userId)
         val current = snapshot.value
-        val firebaseUser = runCatching { auth.currentUser }.getOrNull()
-        val userId = firebaseUser?.uid ?: current.profile.id
 
         val job = current.jobs.firstOrNull { it.id == jobId } ?: error("Job tidak ditemukan.")
         require(job.requesterId == userId) { "Hanya pemilik job yang dapat memilih helper." }
@@ -307,48 +279,20 @@ class LocalDemoRepository(context: Context) : UserRepository {
         val targetApp = current.applications.firstOrNull { it.id == applicationId && it.jobId == jobId } ?: error("Lamaran tidak ditemukan.")
         require(targetApp.status == "pending") { "Lamaran ini sudah diproses." }
 
-        runCatching {
-            firestore.collection("jobs").document(jobId).update(
-                mapOf(
-                    "helperId" to targetApp.applicantId,
-                    "helperName" to targetApp.applicantName,
-                    "status" to JobStatus.IN_PROGRESS.name
-                )
-            ).await()
-        }
+        firestore.collection("jobs").document(jobId).update(
+            mapOf(
+                "helperId" to targetApp.applicantId,
+                "helperName" to targetApp.applicantName,
+                "status" to JobStatus.IN_PROGRESS.name
+            )
+        ).await()
 
-        val batch = runCatching { firestore.batch() }.getOrNull()
-        if (batch != null) {
-            batch.update(firestore.collection("applications").document(targetApp.id), "status", "accepted")
-            current.applications.filter { it.jobId == jobId && it.id != applicationId && it.status == "pending" }.forEach { app ->
-                batch.update(firestore.collection("applications").document(app.id), "status", "rejected")
-            }
-            runCatching { batch.commit().await() }
+        val batch = firestore.batch()
+        batch.update(firestore.collection("applications").document(targetApp.id), "status", "accepted")
+        current.applications.filter { it.jobId == jobId && it.id != applicationId && it.status == "pending" }.forEach { app ->
+            batch.update(firestore.collection("applications").document(app.id), "status", "rejected")
         }
-
-        val updatedApps = current.applications.map { app ->
-            if (app.jobId == jobId) {
-                if (app.id == applicationId) {
-                    app.copy(status = "accepted")
-                } else if (app.status == "pending") {
-                    app.copy(status = "rejected")
-                } else {
-                    app
-                }
-            } else {
-                app
-            }
-        }
-
-        val updatedJobs = current.jobs.map { j ->
-            if (j.id == jobId) {
-                j.copy(helperId = targetApp.applicantId, helperName = targetApp.applicantName, status = JobStatus.IN_PROGRESS)
-            } else {
-                j
-            }
-        }
-
-        save(current.copy(jobs = updatedJobs, applications = updatedApps))
+        batch.commit().await()
     }
 
     override suspend fun acceptJob(id: String) = changeJob(id) { j, p -> JobRules.accept(j, p) }
@@ -359,54 +303,62 @@ class LocalDemoRepository(context: Context) : UserRepository {
     override suspend fun submitReview(id: String, rating: Int, text: String) = changeJob(id) { j, p -> JobRules.review(j, p.id, rating, text) }
     override suspend fun pay(id: String, method: String) = changeJob(id) { j, p -> JobRules.pay(j, p.id, method) }
 
-    override suspend fun updateProfile(profile: UserProfile) = mutex.withLock {
+    override suspend fun updateProfile(profile: UserProfile): Unit = mutex.withLock {
         require(profile.name.trim().length >= 2) { "Nama minimal 2 karakter." }
         require(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(profile.email.trim())) { "Format email belum benar." }
         require(Regex("^\\+?[0-9]{10,15}$").matches(profile.phone.trim())) { "Nomor HP harus 10–15 digit." }
         require(profile.address.trim().length >= 5) { "Lengkapi alamatmu." }
+        
+        val firebaseUser = auth.currentUser ?: error("User belum login.")
+        val currentId = firebaseUser.uid
+        listenToUser(currentId)
+        val updated = profile.copy(id = currentId, name = profile.name.trim(), email = profile.email.trim(), phone = profile.phone.trim(), address = profile.address.trim())
+
+        firestore.collection("users").document(currentId).set(
+            mapOf(
+                "name" to updated.name,
+                "email" to updated.email,
+                "phone" to updated.phone,
+                "address" to updated.address,
+                "photoUrl" to updated.photoUrl,
+                "verified" to updated.verified,
+                "updatedAt" to FieldValue.serverTimestamp()
+            ),
+            SetOptions.merge()
+        ).await()
+
         val current = snapshot.value
-        val firebaseUser = runCatching { auth.currentUser }.getOrNull()
-        val currentId = firebaseUser?.uid ?: current.profile.id
-        val updated = profile.copy(id = currentId, verified = current.profile.verified, name = profile.name.trim(), email = profile.email.trim(), phone = profile.phone.trim(), address = profile.address.trim())
-
-        runCatching {
-            firestore.collection("users").document(currentId).set(
-                mapOf(
-                    "name" to updated.name,
-                    "email" to updated.email,
-                    "phone" to updated.phone,
-                    "address" to updated.address,
-                    "photoUrl" to updated.photoUrl,
-                    "verified" to updated.verified,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ),
-                SetOptions.merge()
-            ).await()
-        }
-
-        save(current.copy(profile = updated, jobs = current.jobs.map { j -> j.copy(
-            requesterName = if (j.requesterId == updated.id) updated.name else j.requesterName,
-            helperName = if (j.helperId == updated.id) updated.name else j.helperName
-        ) }))
+        mutableSnapshot.value = current.copy(profile = updated)
     }
 
-    override suspend fun sendMessage(jobId: String, text: String) = mutex.withLock {
+    override suspend fun sendMessage(jobId: String, text: String): Unit = mutex.withLock {
         require(text.isNotBlank() && text.length <= 2000) { "Pesan harus berisi 1–2.000 karakter." }
-        val current = snapshot.value
-        val job = current.jobs.first { it.id == jobId }
-        require(job.requesterId == current.profile.id || job.helperId == current.profile.id || current.conversations.any { it.jobId == jobId }) { "Percakapan belum tersedia untuk job ini." }
-        val existing = current.conversations.firstOrNull { it.jobId == jobId } ?: Conversation(jobId, if (job.requesterId == current.profile.id) job.helperName ?: "Penulung" else job.requesterName, emptyList())
-        val updated = existing.copy(messages = existing.messages + listOf(
-            ChatMessage(UUID.randomUUID().toString(), text.trim(), true)
-        ))
-        save(current.copy(conversations = current.conversations.filterNot { it.jobId == jobId } + updated))
+        val firebaseUser = auth.currentUser ?: error("User belum login.")
+        val userId = firebaseUser.uid
+        val msgRef = firestore.collection("jobs").document(jobId).collection("messages").document()
+        val msgData = mapOf(
+            "id" to msgRef.id,
+            "jobId" to jobId,
+            "senderId" to userId,
+            "senderName" to (snapshot.value.profile.name.ifBlank { firebaseUser.displayName ?: "Pengguna" }),
+            "message" to text.trim(),
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+        msgRef.set(msgData).await()
     }
 
     override suspend fun sendSupport(message: String): String = mutex.withLock {
-        val current = snapshot.value
-        val id = "DEMO-${current.tickets.size + 1}"
-        save(current.copy(tickets = current.tickets + SupportTicket(id, message.trim())))
-        id
+        require(message.isNotBlank()) { "Pesan bantuan tidak boleh kosong." }
+        val firebaseUser = auth.currentUser ?: error("User belum login.")
+        val ticketRef = firestore.collection("support_tickets").document()
+        val ticketData = mapOf(
+            "id" to ticketRef.id,
+            "userId" to firebaseUser.uid,
+            "message" to message.trim(),
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+        ticketRef.set(ticketData).await()
+        ticketRef.id
     }
 
     override fun updateHelperLocation(lat: Double, lng: Double) {

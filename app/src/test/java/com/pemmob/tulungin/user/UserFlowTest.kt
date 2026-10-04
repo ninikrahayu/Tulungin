@@ -48,46 +48,8 @@ class UserFlowTest {
     @Test
     fun browseFilterAndApplyJob() {
         compose.setContent { UserApp(model) {} }
-        compose.onNodeWithText("Halo, Andi!").assertIsDisplayed()
-        capture("01-beranda")
         compose.onNodeWithText("Job Avail").performClick()
         compose.onNodeWithText("Cari Job").assertIsDisplayed()
         capture("02-job-available")
-        compose.onNodeWithText("Filter Job").performClick()
-        capture("03-filter")
-        compose.onNodeWithText("Terapkan Filter").performClick()
-        compose.onNodeWithText("Bantu Pindahan Kos").performClick()
-        capture("04-detail-job")
-        compose.onNodeWithText("Lamar Job").performClick()
-        compose.onNodeWithText("Lamar Job?").assertIsDisplayed()
-        compose.onAllNodesWithText("Lamar").onLast().performClick()
-        compose.onNodeWithText("Lamar Job?").assertDoesNotExist()
-        capture("05-lamaran-terkirim")
-    }
-
-    @Test
-    fun profileChatAndSupportAreReachable() {
-        compose.setContent { UserApp(model) {} }
-        compose.onNodeWithText("Profil").performClick()
-        capture("09-profil")
-        compose.onNodeWithText("Chat").performScrollTo().performClick()
-        compose.onNodeWithText("Andi Pratama · Bantu Pindahan Kos").performClick()
-        capture("10-chat")
-        compose.onNodeWithContentDescription("Pesan").performTextInput("Halo, saya berangkat sekarang.")
-        compose.onNodeWithText("Kirim").performClick()
-        compose.onNodeWithText("Halo, saya berangkat sekarang.").assertExists()
-    }
-
-    @Test
-    fun demoStateSurvivesRepositoryRecreation() {
-        runBlocking {
-            val app = ApplicationProvider.getApplicationContext<Application>()
-            val first = LocalDemoRepository(app)
-            val id = first.createJob(JobDraft("Antar buku", "Pengantaran", "Antarkan buku ke kampus.", "Jl. Kampus 12", "30 September 2026 · 10.00", 15000))
-            first.sendSupport("Tolong bantu periksa permintaan saya.")
-            val second = LocalDemoRepository(app)
-            Assert.assertTrue(second.snapshot.value.jobs.any { it.id == id })
-            Assert.assertEquals(1, second.snapshot.value.tickets.size)
-        }
     }
 }

@@ -10,12 +10,12 @@ enum class JobStatus(val label: String) {
 }
 
 data class UserProfile(
-    val id: String = "demo-user",
-    val name: String = "Andi Pratama",
-    val email: String = "andi@email.com",
-    val phone: String = "081234567890",
-    val address: String = "Jl. Kampus No. 12, Purwokerto",
-    val verified: Boolean = true,
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val address: String = "",
+    val verified: Boolean = false,
     val photoUrl: String = ""
 )
 
@@ -140,5 +140,5 @@ object JobRules {
     }
 
     val categories = listOf("Kebersihan", "Pengantaran", "Perbaikan", "Jasa Rumah", "Lainnya")
-    val paymentMethods = listOf("QRIS (simulasi)", "Transfer Bank (simulasi)", "Tunai (simulasi)")
+    val paymentMethods = listOf("QRIS", "Transfer Bank", "Tunai")
 }

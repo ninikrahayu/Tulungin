@@ -3,28 +3,12 @@ package com.pemmob.tulungin.ui.admin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,30 +20,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginBorderGrey
-import com.pemmob.tulungin.ui.theme.TulunginDangerBorder
-import com.pemmob.tulungin.ui.theme.TulunginDeactivateBg
-import com.pemmob.tulungin.ui.theme.TulunginDeactivateText
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginSuccessContainer
-import com.pemmob.tulungin.ui.theme.TulunginSuccessContent
-import com.pemmob.tulungin.ui.theme.TulunginSuccessDot
-import com.pemmob.tulungin.ui.theme.TulunginTextMuted
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
-import com.pemmob.tulungin.ui.theme.TulunginWarningContainer
-import com.pemmob.tulungin.ui.theme.TulunginWarningContent
-import com.pemmob.tulungin.ui.theme.TulunginWarningDot
+import com.pemmob.tulungin.ui.theme.*
 
 @Composable
 fun DetailUser(
     modifier: Modifier = Modifier,
-    name: String = "Andi Pratama",
-    email: String = "andi@email.com",
-    phone: String = "081234567890",
-    address: String = "Jl. Mayjen Sungkono No. 12B, Kelurahan Selabaya, Kalimanah, Purbalingga",
-    isVerified: Boolean = true,
+    name: String = "",
+    email: String = "",
+    phone: String = "",
+    address: String = "",
+    isVerified: Boolean = false,
     onBackClick: () -> Unit = {},
     onDeactivateClick: () -> Unit = {}
 ) {
@@ -73,7 +43,6 @@ fun DetailUser(
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp)
     ) {
-        // Top Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -102,7 +71,6 @@ fun DetailUser(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Profile Avatar & Name
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -124,7 +92,7 @@ fun DetailUser(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = name,
+                text = name.ifBlank { "Pengguna" },
                 color = TulunginTextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
@@ -132,7 +100,6 @@ fun DetailUser(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Verification Badge
             Row(
                 modifier = Modifier
                     .background(
@@ -162,7 +129,6 @@ fun DetailUser(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Section Title: Informasi Akun
         Text(
             text = "Informasi Akun",
             color = TulunginTextPrimary,
@@ -173,7 +139,6 @@ fun DetailUser(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Informasi Akun Card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -182,10 +147,9 @@ fun DetailUser(
                 .border(1.2.dp, TulunginMintBorder, RoundedCornerShape(20.dp))
                 .padding(18.dp)
         ) {
-            // 1. Nama Lengkap
             InfoFieldItem(
                 label = "Nama Lengkap",
-                value = name
+                value = name.ifBlank { "-" }
             )
 
             HorizontalDivider(
@@ -194,10 +158,9 @@ fun DetailUser(
                 color = TulunginBorderGrey
             )
 
-            // 2. Email
             InfoFieldItem(
                 label = "Email",
-                value = email
+                value = email.ifBlank { "-" }
             )
 
             HorizontalDivider(
@@ -206,10 +169,9 @@ fun DetailUser(
                 color = TulunginBorderGrey
             )
 
-            // 3. Nomor HP
             InfoFieldItem(
                 label = "Nomor HP",
-                value = phone
+                value = phone.ifBlank { "-" }
             )
 
             HorizontalDivider(
@@ -218,10 +180,9 @@ fun DetailUser(
                 color = TulunginBorderGrey
             )
 
-            // 4. Alamat
             InfoFieldItem(
                 label = "Alamat",
-                value = address
+                value = address.ifBlank { "-" }
             )
 
             HorizontalDivider(
@@ -230,7 +191,6 @@ fun DetailUser(
                 color = TulunginBorderGrey
             )
 
-            // 5. Status Akun
             Column {
                 Text(
                     text = "Status Akun",
@@ -263,7 +223,6 @@ fun DetailUser(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Button: Nonaktifkan Akun
         Button(
             onClick = onDeactivateClick,
             modifier = Modifier
@@ -289,7 +248,7 @@ fun DetailUser(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Nonaktifkan Akun",
+                    text = "Hapus Akun",
                     color = TulunginDeactivateText,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold

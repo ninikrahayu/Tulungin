@@ -5,8 +5,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JobRulesTest {
-    private val user = UserProfile()
-    private val job = DemoFixtures.initial().jobs.first()
+    private val user = UserProfile(id = "user-1", name = "Test User", verified = true)
+    private val job = UserJob(
+        id = "job-1",
+        title = "Bantu Pindahan Kos",
+        category = "Jasa Rumah",
+        description = "Membantu memindahkan barang",
+        location = "Jl. Kampus",
+        scheduledAt = "28 September 2026",
+        fee = 50000,
+        distanceKm = 1.0,
+        requesterId = "requester-1",
+        requesterName = "Andi"
+    )
 
     @Test
     fun helperSubmitsWorkProofRequesterSubmitsPaymentProofAndBothConfirm() {

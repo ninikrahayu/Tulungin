@@ -3,28 +3,12 @@ package com.pemmob.tulungin.ui.admin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,30 +20,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginDangerBorder
-import com.pemmob.tulungin.ui.theme.TulunginDangerContainer
-import com.pemmob.tulungin.ui.theme.TulunginDangerText
-import com.pemmob.tulungin.ui.theme.TulunginInactiveStep
-import com.pemmob.tulungin.ui.theme.TulunginMintBackground
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextSecondary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.*
 
 @Composable
 fun DetailJob(
     modifier: Modifier = Modifier,
-    jobTitle: String = "Bantu Pindahan Kos",
-    statusText: String = "Sedang dikerjakan",
-    needDetail: String = "Membantu memindahkan barang dari kamar kos ke tempat baru.",
-    category: String = "Jasa Rumah",
-    location: String = "Jl. Kampus No. 12, Purwokerto",
-    time: String = "28 September 2026 · 09.00",
-    fee: String = "Rp50.000",
-    requester: String = "Andi Pratama",
-    helper: String = "Budi Santoso",
-    currentProgressStep: Int = 2, // 0: Job dibuat, 1: Job diambil, 2: Sedang dikerjakan, 3: Bukti penyelesaian, 4: Selesai
+    jobTitle: String = "",
+    statusText: String = "",
+    needDetail: String = "",
+    category: String = "",
+    location: String = "",
+    time: String = "",
+    fee: String = "",
+    requester: String = "",
+    helper: String = "",
+    currentProgressStep: Int = 0,
     onBackClick: () -> Unit = {},
     onDeactivateClick: () -> Unit = {}
 ) {
@@ -73,7 +48,6 @@ fun DetailJob(
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp)
     ) {
-        // Top Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -102,9 +76,8 @@ fun DetailJob(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Job Title ("Bantu Pindahan Kos")
         Text(
-            text = jobTitle,
+            text = jobTitle.ifBlank { "Job" },
             color = TulunginTextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
@@ -113,7 +86,6 @@ fun DetailJob(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Status Badge / Banner ("Sedang dikerjakan")
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -122,7 +94,7 @@ fun DetailJob(
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             Text(
-                text = statusText,
+                text = statusText.ifBlank { "AVAILABLE" },
                 color = TulunginPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
@@ -131,7 +103,6 @@ fun DetailJob(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Card "Detail Kebutuhan"
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -147,7 +118,7 @@ fun DetailJob(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = needDetail,
+                text = needDetail.ifBlank { "Tidak ada detail." },
                 color = TulunginPrimary,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
@@ -156,56 +127,20 @@ fun DetailJob(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Info Cards (Each in its own rounded outlined card)
-        // 1. Kategori
-        JobInfoCard(
-            label = "Kategori",
-            value = category
-        )
-
+        JobInfoCard(label = "Kategori", value = category.ifBlank { "-" })
         Spacer(modifier = Modifier.height(12.dp))
-
-        // 2. Lokasi
-        JobInfoCard(
-            label = "Lokasi",
-            value = location
-        )
-
+        JobInfoCard(label = "Lokasi", value = location.ifBlank { "-" })
         Spacer(modifier = Modifier.height(12.dp))
-
-        // 3. Waktu
-        JobInfoCard(
-            label = "Waktu",
-            value = time
-        )
-
+        JobInfoCard(label = "Waktu", value = time.ifBlank { "-" })
         Spacer(modifier = Modifier.height(12.dp))
-
-        // 4. Upah Jasa
-        JobInfoCard(
-            label = "Upah Jasa",
-            value = fee
-        )
-
+        JobInfoCard(label = "Upah Jasa", value = fee.ifBlank { "Rp0" })
         Spacer(modifier = Modifier.height(12.dp))
-
-        // 5. Peminta
-        JobInfoCard(
-            label = "Peminta",
-            value = requester
-        )
-
+        JobInfoCard(label = "Peminta", value = requester.ifBlank { "-" })
         Spacer(modifier = Modifier.height(12.dp))
-
-        // 6. Penulung
-        JobInfoCard(
-            label = "Penulung",
-            value = helper
-        )
+        JobInfoCard(label = "Penulung", value = helper.ifBlank { "Belum ada" })
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Section: "Progres Job"
         Text(
             text = "Progres Job",
             color = TulunginTextPrimary,
@@ -216,7 +151,6 @@ fun DetailJob(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Progres Job Timeline Card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -245,7 +179,6 @@ fun DetailJob(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Button: "Nonaktifkan Job"
         Button(
             onClick = onDeactivateClick,
             modifier = Modifier
@@ -271,7 +204,7 @@ fun DetailJob(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Nonaktifkan Job",
+                    text = "Hapus Job",
                     color = TulunginDangerText,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
@@ -325,12 +258,10 @@ private fun DetailTimelineItem(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        // Vertical Indicator (Dot + connecting line)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.width(16.dp)
         ) {
-            // Circle Dot
             if (isCompleted || isCurrent) {
                 Box(
                     modifier = Modifier
@@ -346,7 +277,6 @@ private fun DetailTimelineItem(
                 )
             }
 
-            // Connecting Line downwards to next step
             if (!isLast) {
                 val lineColor = if (isCompleted && !isCurrent) TulunginPrimary else TulunginInactiveStep
                 Box(
@@ -360,7 +290,6 @@ private fun DetailTimelineItem(
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // Step Label Text
         Text(
             text = title,
             color = if (isCompleted || isCurrent) TulunginTextPrimary else TulunginTextSecondary,

@@ -2,6 +2,7 @@ package com.pemmob.tulungin
 
 import android.os.Bundle
 import android.util.Log
+import android.util.Patterns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -91,13 +92,13 @@ class MainActivity : ComponentActivity() {
 
                 var selectedUser by remember {
                     mutableStateOf(
-                        UserItem("demo-user", "Andi Pratama", "081234567890", "andi@email.com", "Jl. Kampus", true)
+                        UserItem("", "", "", "", "", false)
                     )
                 }
 
                 var selectedJob by remember {
                     mutableStateOf(
-                        JobItem("demo-job", "Bantu Pindahan Kos", "Jasa Rumah", "Andi Pratama", "Sedang dikerjakan", "Detail...", "Lokasi...", "Waktu...", 50000L, "Rina")
+                        JobItem("", "", "", "", "", "", "", "", 0L, null)
                     )
                 }
 
@@ -195,104 +196,11 @@ class MainActivity : ComponentActivity() {
                     }
                     "register" -> {
                         RegisterScreen(
-
-                            // Untuk register email/password biasa
                             onRegisterClick = { name, email, password, phone, address ->
-
-                                if (password.length < 6) {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "Password minimal 6 karakter.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    return@RegisterScreen
+                                registerWithEmailPassword(name, email, password, phone, address) {
+                                    backStack = listOf("user")
                                 }
-
-                                auth.createUserWithEmailAndPassword(email, password)
-                                    .addOnCompleteListener { task ->
-
-                                        if (task.isSuccessful) {
-
-                                            val user = auth.currentUser
-
-                                            if (user == null) {
-                                                Toast.makeText(
-                                                    this@MainActivity,
-                                                    "User berhasil dibuat, tapi UID tidak ditemukan.",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                                return@addOnCompleteListener
-                                            }
-
-                                            val userData = hashMapOf(
-                                                "name" to name,
-                                                "email" to email,
-                                                "phone" to phone,
-                                                "address" to address,
-                                                "photoUrl" to "",
-                                                "role" to "user",
-                                                "createdAt" to FieldValue.serverTimestamp(),
-                                                "updatedAt" to FieldValue.serverTimestamp()
-                                            )
-
-                                            firestore
-                                                .collection("users")
-                                                .document(user.uid)
-                                                .set(userData)
-                                                .addOnSuccessListener {
-
-                                                    userViewModel.perform {
-                                                        updateProfile(
-                                                            snapshot.value.profile.copy(
-                                                                name = name,
-                                                                email = email,
-                                                                phone = phone,
-                                                                address = address
-                                                            )
-                                                        )
-                                                    }
-
-                                                    Toast.makeText(
-                                                        this@MainActivity,
-                                                        "Akun berhasil dibuat.",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-
-                                                    backStack = listOf("user")
-                                                }
-                                                .addOnFailureListener { e ->
-
-                                                    Log.e(
-                                                        "TulunginAuth",
-                                                        "Firestore gagal menyimpan user",
-                                                        e
-                                                    )
-
-                                                    Toast.makeText(
-                                                        this@MainActivity,
-                                                        "Gagal menyimpan profil: ${e.message}",
-                                                        Toast.LENGTH_LONG
-                                                    ).show()
-                                                }
-
-                                        } else {
-
-                                            Log.e(
-                                                "TulunginAuth",
-                                                "Firebase Auth register gagal",
-                                                task.exception
-                                            )
-
-                                            Toast.makeText(
-                                                this@MainActivity,
-                                                "Register gagal: ${task.exception?.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                    }
                             },
-
-                            // Google Sign Up biasa
                             onGoogleSignUpClick = {
                                 signInWithGoogle(
                                     onSuccess = {
@@ -304,19 +212,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             },
-
                             onLoginClick = {
                                 navigateBack()
                             },
-
-                            // INI MODE GOOGLE PROFILE
                             isCompletingProfile = completingGoogleProfile,
-
                             initialName = auth.currentUser?.displayName ?: "",
                             initialEmail = auth.currentUser?.email ?: "",
-
                             onCompleteProfileClick = { phone, address ->
-
                                 completeGoogleProfile(
                                     phone = phone,
                                     address = address
@@ -501,22 +403,35 @@ class MainActivity : ComponentActivity() {
         address: String,
         onSuccess: () -> Unit
     ) {
-        if (
-            fullName.isBlank() ||
-            email.isBlank() ||
-            password.isBlank() ||
-            phone.isBlank() ||
-            address.isBlank()
-        ) {
-            Toast.makeText(
-                this,
-                "Semua field harus diisi",
-                Toast.LENGTH_SHORT
-            ).show()
-            return
+        val trimmedName = fullName.trim()
+        val trimmedEmail = email.trim()
+        val trimmedPhone = phone.trim()
+        val trimmedAddress = address.trim()
+
+        when {
+            trimmedName.isBlank() -> {
+                Toast.makeText(this, "Nama wajib diisi", Toast.LENGTH_SHORT).show()
+                return
+            }
+            trimmedEmail.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches() -> {
+                Toast.makeText(this, "Email tidak valid", Toast.LENGTH_SHORT).show()
+                return
+            }
+            password.length < 6 -> {
+                Toast.makeText(this, "Password minimal 6 karakter", Toast.LENGTH_SHORT).show()
+                return
+            }
+            trimmedPhone.isBlank() || !Regex("^\\+?[0-9]{10,15}$").matches(trimmedPhone) -> {
+                Toast.makeText(this, "Nomor HP tidak valid (10-15 digit)", Toast.LENGTH_SHORT).show()
+                return
+            }
+            trimmedAddress.isBlank() -> {
+                Toast.makeText(this, "Alamat wajib diisi", Toast.LENGTH_SHORT).show()
+                return
+            }
         }
 
-        auth.createUserWithEmailAndPassword(email, password)
+        auth.createUserWithEmailAndPassword(trimmedEmail, password)
             .addOnCompleteListener(this) { task ->
 
                 if (task.isSuccessful) {
@@ -533,12 +448,13 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val userData = hashMapOf(
-                        "name" to fullName,
-                        "email" to email,
-                        "phone" to phone,
-                        "address" to address,
+                        "name" to trimmedName,
+                        "email" to trimmedEmail,
+                        "phone" to trimmedPhone,
+                        "address" to trimmedAddress,
                         "photoUrl" to "",
                         "role" to "user",
+                        "verified" to false,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -717,6 +633,7 @@ class MainActivity : ComponentActivity() {
                         "address" to "",
                         "photoUrl" to photoUrl,
                         "role" to "user",
+                        "verified" to false,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -770,6 +687,20 @@ class MainActivity : ComponentActivity() {
         address: String,
         onSuccess: () -> Unit
     ) {
+        val trimmedPhone = phone.trim()
+        val trimmedAddress = address.trim()
+
+        when {
+            trimmedPhone.isBlank() || !Regex("^\\+?[0-9]{10,15}$").matches(trimmedPhone) -> {
+                Toast.makeText(this, "Nomor HP tidak valid (10-15 digit)", Toast.LENGTH_SHORT).show()
+                return
+            }
+            trimmedAddress.isBlank() -> {
+                Toast.makeText(this, "Alamat wajib diisi", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
         val user = auth.currentUser
 
         if (user == null) {
@@ -782,28 +713,25 @@ class MainActivity : ComponentActivity() {
         }
 
         val userRef = firestore.collection("users").document(user.uid)
-        userRef.update(
+        userRef.set(
             mapOf(
-                "phone" to phone,
-                "address" to address,
+                "name" to (user.displayName ?: "User"),
+                "email" to (user.email ?: ""),
+                "phone" to trimmedPhone,
+                "address" to trimmedAddress,
+                "role" to "user",
+                "verified" to false,
                 "updatedAt" to FieldValue.serverTimestamp()
-            )
+            ),
+            SetOptions.merge()
         ).addOnSuccessListener {
             onSuccess()
-        }.addOnFailureListener {
-            // Fallback to set if document doesn't exist
-            userRef.set(
-                mapOf(
-                    "name" to (user.displayName ?: "User"),
-                    "email" to (user.email ?: ""),
-                    "phone" to phone,
-                    "address" to address,
-                    "role" to "user",
-                    "verified" to true,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ),
-                SetOptions.merge()
-            ).addOnSuccessListener { onSuccess() }
+        }.addOnFailureListener { e ->
+            Toast.makeText(
+                this,
+                "Gagal menyimpan profile: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
