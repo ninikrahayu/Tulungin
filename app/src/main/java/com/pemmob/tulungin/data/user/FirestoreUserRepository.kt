@@ -18,7 +18,7 @@ import kotlinx.coroutines.tasks.await
 
 /**
  * Production implementation of UserRepository backed strictly by Cloud Firestore.
- * No dummy or mock fallbacks are used.
+ * Listens to FirebaseAuth state changes to prevent cross-account data leakage.
  */
 class FirestoreUserRepository(context: Context) : UserRepository {
     private val appContext = context.applicationContext
@@ -39,6 +39,17 @@ class FirestoreUserRepository(context: Context) : UserRepository {
     private var applicationsListener: ListenerRegistration? = null
     private var userListener: ListenerRegistration? = null
 
+    private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        val user = firebaseAuth.currentUser
+        if (user != null) {
+            listenToUser(user.uid)
+        } else {
+            userListener?.remove()
+            userListener = null
+            mutableSnapshot.value = UserSnapshot()
+        }
+    }
+
     private fun parseJobStatus(raw: String?): JobStatus {
         if (raw == null) return JobStatus.AVAILABLE
         return when (raw.lowercase()) {
@@ -54,6 +65,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
 
     init {
         runCatching {
+            auth.addAuthStateListener(authStateListener)
             val currentUser = auth.currentUser
             if (currentUser != null) {
                 listenToUser(currentUser.uid)
@@ -71,11 +83,11 @@ class FirestoreUserRepository(context: Context) : UserRepository {
                                 category = document.getString("category") ?: "",
                                 description = document.getString("description") ?: "",
                                 location = document.getString("location") ?: "",
-                                locationLat = document.getDouble("locationLat"),
-                                locationLng = document.getDouble("locationLng"),
+                                locationLat = document.get("locationLat") as? Double ?: document.get("locationLat")?.toString()?.toDoubleOrNull(),
+                                locationLng = document.get("locationLng") as? Double ?: document.get("locationLng")?.toString()?.toDoubleOrNull(),
                                 scheduledAt = document.getString("scheduledAt") ?: "",
-                                fee = document.getLong("fee") ?: 0L,
-                                distanceKm = document.getDouble("distanceKm") ?: 0.0,
+                                fee = when (val f = document.get("fee")) { is Number -> f.toLong(); is String -> f.toLongOrNull() ?: 0L; else -> 0L },
+                                distanceKm = when (val d = document.get("distanceKm")) { is Number -> d.toDouble(); is String -> d.toDoubleOrNull() ?: 0.0; else -> 0.0 },
                                 requesterId = document.getString("requesterId") ?: "",
                                 requesterName = document.getString("requesterName") ?: "",
                                 helperId = document.getString("helperId"),
@@ -87,7 +99,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
                                 paymentProofName = document.getString("paymentProofName"),
                                 helperConfirmed = document.getBoolean("helperConfirmed") ?: false,
                                 requesterConfirmed = document.getBoolean("requesterConfirmed") ?: false,
-                                rating = (document.getLong("rating") ?: 0L).toInt(),
+                                rating = when (val r = document.get("rating")) { is Number -> r.toInt(); is String -> r.toIntOrNull() ?: 0; else -> 0 },
                                 review = document.getString("review") ?: "",
                                 paymentMethod = document.getString("paymentMethod") ?: "",
                                 paid = document.getBoolean("paid") ?: false
@@ -128,15 +140,30 @@ class FirestoreUserRepository(context: Context) : UserRepository {
         userListener?.remove()
         userListener = firestore.collection("users").document(userId)
             .addSnapshotListener { doc, error ->
-                if (error != null || doc == null || !doc.exists()) return@addSnapshotListener
+                if (error != null || doc == null || !doc.exists()) {
+                    val firebaseUser = auth.currentUser
+                    if (firebaseUser != null && firebaseUser.uid == userId) {
+                        mutableSnapshot.value = snapshot.value.copy(
+                            profile = UserProfile(
+                                id = userId,
+                                name = firebaseUser.displayName ?: "Pengguna",
+                                email = firebaseUser.email ?: "",
+                                verified = false,
+                                verificationRequested = false
+                            )
+                        )
+                    }
+                    return@addSnapshotListener
+                }
                 val profile = UserProfile(
                     id = userId,
-                    name = doc.getString("name") ?: "",
-                    email = doc.getString("email") ?: "",
+                    name = doc.getString("name") ?: auth.currentUser?.displayName ?: "",
+                    email = doc.getString("email") ?: auth.currentUser?.email ?: "",
                     phone = doc.getString("phone") ?: "",
                     address = doc.getString("address") ?: "",
                     verified = doc.getBoolean("verified") ?: false,
-                    photoUrl = doc.getString("photoUrl") ?: ""
+                    photoUrl = doc.getString("photoUrl") ?: auth.currentUser?.photoUrl?.toString() ?: "",
+                    verificationRequested = doc.getBoolean("verificationRequested") ?: false
                 )
                 mutableSnapshot.value = snapshot.value.copy(profile = profile)
             }
@@ -186,7 +213,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
         listenToUser(userId)
         val id = runCatching { firestore.collection("jobs").document().id }.getOrNull() ?: UUID.randomUUID().toString()
 
-        val requesterName = firebaseUser.displayName?.takeIf { it.isNotBlank() } ?: "Pengguna"
+        val requesterName = firebaseUser.displayName?.takeIf { it.isNotBlank() } ?: snapshot.value.profile.name.ifBlank { "Pengguna" }
 
         val job = UserJob(
             id = id,
@@ -322,6 +349,7 @@ class FirestoreUserRepository(context: Context) : UserRepository {
                 "address" to updated.address,
                 "photoUrl" to updated.photoUrl,
                 "verified" to updated.verified,
+                "verificationRequested" to updated.verificationRequested,
                 "updatedAt" to FieldValue.serverTimestamp()
             ),
             SetOptions.merge()

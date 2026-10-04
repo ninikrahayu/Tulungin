@@ -22,6 +22,22 @@
           }
         },
         {
+          "client_id": "523578674789-mgk7uchnva1tlh5v52ptok1ga5fepthi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pemmob.tulungin",
+            "certificate_hash": "b76f3aa62be64d3d4267730e5af243f776426be0"
+          }
+        },
+        {
+          "client_id": "523578674789-v7g936u0pac7pkremddspoabr2hqhvjr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pemmob.tulungin",
+            "certificate_hash": "3f64f9591cfb75f5d7845e2e3368e1750e085d73"
+          }
+        },
+        {
           "client_id": "523578674789-49te1qbf9p356kl51fsp5j3e20j7epjd.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -16,7 +16,8 @@ data class UserProfile(
     val phone: String = "",
     val address: String = "",
     val verified: Boolean = false,
-    val photoUrl: String = ""
+    val photoUrl: String = "",
+    val verificationRequested: Boolean = false
 )
 
 data class UserJob(

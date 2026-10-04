@@ -44,8 +44,8 @@ import com.pemmob.tulungin.ui.user.rupiah
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.cloudinary.android.MediaManager
 import com.google.firebase.firestore.SetOptions
+import com.cloudinary.android.MediaManager
 import org.maplibre.android.MapLibre
 
 class MainActivity : ComponentActivity() {
@@ -328,6 +328,7 @@ class MainActivity : ComponentActivity() {
                         "email" to "admin@tulungin.demo",
                         "role" to "admin",
                         "verified" to true,
+                        "verificationRequested" to false,
                         "createdAt" to FieldValue.serverTimestamp()
                     ),
                     SetOptions.merge()
@@ -455,6 +456,7 @@ class MainActivity : ComponentActivity() {
                         "photoUrl" to "",
                         "role" to "user",
                         "verified" to false,
+                        "verificationRequested" to false,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -634,6 +636,7 @@ class MainActivity : ComponentActivity() {
                         "photoUrl" to photoUrl,
                         "role" to "user",
                         "verified" to false,
+                        "verificationRequested" to false,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -721,6 +724,7 @@ class MainActivity : ComponentActivity() {
                 "address" to trimmedAddress,
                 "role" to "user",
                 "verified" to false,
+                "verificationRequested" to false,
                 "updatedAt" to FieldValue.serverTimestamp()
             ),
             SetOptions.merge()

@@ -13,6 +13,7 @@ internal object SnapshotCodec {
             put("id", state.profile.id); put("name", state.profile.name); put("email", state.profile.email)
             put("phone", state.profile.phone); put("address", state.profile.address); put("verified", state.profile.verified)
             put("photoUrl", state.profile.photoUrl)
+            put("verificationRequested", state.profile.verificationRequested)
         })
         put("jobs", JSONArray(state.jobs.map { job -> JSONObject().apply {
             put("id", job.id); put("title", job.title); put("category", job.category); put("description", job.description)
@@ -52,7 +53,8 @@ internal object SnapshotCodec {
                 phone = p.getString("phone"),
                 address = p.getString("address"),
                 verified = p.getBoolean("verified"),
-                photoUrl = p.optString("photoUrl", "")
+                photoUrl = p.optString("photoUrl", ""),
+                verificationRequested = p.optBoolean("verificationRequested", false)
             ),
             jobs = root.getJSONArray("jobs").mapObjects { j -> UserJob(
                 id = j.getString("id"), title = j.getString("title"), category = j.getString("category"), description = j.getString("description"),

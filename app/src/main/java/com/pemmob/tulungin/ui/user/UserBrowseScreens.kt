@@ -1,5 +1,6 @@
 package com.pemmob.tulungin.ui.user
 
+import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,8 +10,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.data.user.*
 import java.util.Locale
 
@@ -142,14 +149,70 @@ internal fun HistoryScreen(state: UserSnapshot, onJob: (UserJob) -> Unit) {
 
 @Composable
 internal fun ProfileScreen(profile: UserProfile, onNavigate: (String) -> Unit, onLogout: () -> Unit) {
+    val auth = FirebaseAuth.getInstance()
+    val isVerifiedAccount = profile.verified
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val user = auth.currentUser
+                if (user != null && !profile.verified) {
+                    user.reload().addOnCompleteListener { task ->
+                        if (task.isSuccessful && user.isEmailVerified) {
+                            val userRef = FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                            userRef.get().addOnSuccessListener { doc ->
+                                if (doc.exists() && doc.getBoolean("verificationRequested") == true) {
+                                    userRef.update(
+                                        mapOf(
+                                            "verified" to true,
+                                            "verificationRequested" to false
+                                        )
+                                    ).addOnSuccessListener {
+                                        Toast.makeText(context, "Email berhasil terverifikasi! Akun Anda kini terverifikasi.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     UserContent {
         Row(Modifier.fillMaxWidth().heightIn(min = 85.dp).background(UserMint, RoundedCornerShape(14.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                UText(profile.name, weight = FontWeight.SemiBold, color = UserPrimary)
-                UText(if (profile.verified) "Akun terverifikasi" else "Menunggu verifikasi admin", size = 13, color = UserPrimary)
+                UText(profile.name.ifBlank { "Pengguna" }, weight = FontWeight.SemiBold, color = UserPrimary)
+                UText(if (isVerifiedAccount) "Akun terverifikasi" else "Belum terverifikasi", size = 13, color = if (isVerifiedAccount) UserPrimary else Color(0xFFD32F2F))
             }
             FigmaAsset("avatar", Modifier.size(52.dp))
         }
+
+        if (!isVerifiedAccount) {
+            UserButton("Verifikasi Email", secondary = false) {
+                val user = auth.currentUser
+                if (user == null) {
+                    Toast.makeText(context, "User belum login.", Toast.LENGTH_SHORT).show()
+                } else {
+                    user.sendEmailVerification().addOnCompleteListener { sendTask ->
+                        if (sendTask.isSuccessful) {
+                            FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                                .update("verificationRequested", true)
+                            Toast.makeText(context, "Email verifikasi telah dikirim. Silakan cek inbox email Anda.", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(context, "Gagal mengirim email: ${sendTask.exception?.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+
         DetailCard("Email", profile.email)
         DetailCard("Nomor HP", profile.phone)
         DetailCard("Alamat", profile.address)
