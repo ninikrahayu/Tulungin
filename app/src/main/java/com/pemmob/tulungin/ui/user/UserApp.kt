@@ -1,7 +1,11 @@
 package com.pemmob.tulungin.ui.user
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +20,7 @@ import com.pemmob.tulungin.ui.theme.TulunginTheme
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.launch
 
 @Composable
@@ -36,6 +41,26 @@ fun UserApp(viewModel: UserViewModel, onLogout: () -> Unit) {
         val savedScreens = rememberSaveableStateHolder()
         val context = LocalContext.current
         val coroutineScope = rememberCoroutineScope()
+
+        val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+        val locationPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                runCatching {
+                    @SuppressLint("MissingPermission")
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                        if (location != null) {
+                            viewModel.repository.updateHelperLocation(location.latitude, location.longitude)
+                        }
+                    }
+                }
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
 
         fun navigate(route: String) { if (stack.last() != route) stack = stack + route }
         fun tab(route: String) { stack = listOf(route) }

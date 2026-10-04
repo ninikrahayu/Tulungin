@@ -1,6 +1,7 @@
 package com.pemmob.tulungin.data.user
 
 import android.content.Context
+import android.location.Location
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -379,8 +380,7 @@ class LocalDemoRepository(context: Context) : UserRepository {
         require(job.requesterId == current.profile.id || job.helperId == current.profile.id || current.conversations.any { it.jobId == jobId }) { "Percakapan belum tersedia untuk job ini." }
         val existing = current.conversations.firstOrNull { it.jobId == jobId } ?: Conversation(jobId, if (job.requesterId == current.profile.id) job.helperName ?: "Penulung" else job.requesterName, emptyList())
         val updated = existing.copy(messages = existing.messages + listOf(
-            ChatMessage(UUID.randomUUID().toString(), text.trim(), true),
-            ChatMessage(UUID.randomUUID().toString(), "Baik, pesanmu sudah saya terima. (Balasan simulasi)", false)
+            ChatMessage(UUID.randomUUID().toString(), text.trim(), true)
         ))
         save(current.copy(conversations = current.conversations.filterNot { it.jobId == jobId } + updated))
     }
@@ -390,5 +390,19 @@ class LocalDemoRepository(context: Context) : UserRepository {
         val id = "DEMO-${current.tickets.size + 1}"
         save(current.copy(tickets = current.tickets + SupportTicket(id, message.trim())))
         id
+    }
+
+    override fun updateHelperLocation(lat: Double, lng: Double) {
+        val current = snapshot.value
+        val updatedJobs = current.jobs.map { job ->
+            if (job.locationLat != null && job.locationLng != null) {
+                val results = FloatArray(1)
+                Location.distanceBetween(lat, lng, job.locationLat, job.locationLng, results)
+                job.copy(distanceKm = results[0] / 1000.0)
+            } else {
+                job
+            }
+        }
+        mutableSnapshot.value = current.copy(jobs = updatedJobs)
     }
 }

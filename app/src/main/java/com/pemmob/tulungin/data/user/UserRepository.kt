@@ -20,4 +20,5 @@ interface UserRepository {
     suspend fun updateProfile(profile: UserProfile)
     suspend fun sendMessage(jobId: String, text: String)
     suspend fun sendSupport(message: String): String
+    fun updateHelperLocation(lat: Double, lng: Double)
 }
