@@ -234,7 +234,11 @@ class MainActivity : ComponentActivity() {
                             onManageUsersClick = { navigateTo("kelola_user") },
                             onManageCategoriesClick = { navigateTo("kelola_kategori") },
                             onManageJobsClick = { navigateTo("kelola_job") },
-                            onChatClick = { navigateTo("chat") }
+                            onChatClick = { navigateTo("chat") },
+                            onLogoutClick = {
+                                auth.signOut()
+                                backStack = listOf("login")
+                            }
                         )
                     }
                     "kelola_user" -> {
@@ -247,22 +251,49 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "detail_user" -> {
+                        val isSelfAccount = selectedUser.id.isNotBlank() && selectedUser.id == auth.currentUser?.uid
                         DetailUser(
                             name = selectedUser.name,
                             phone = selectedUser.phone,
                             email = selectedUser.email,
                             address = selectedUser.address,
                             isVerified = selectedUser.isVerified,
+                            isActive = selectedUser.isActive,
+                            isSelf = isSelfAccount,
                             onBackClick = { navigateBack() },
-                            onDeactivateClick = {
-                                firestore.collection("users").document(selectedUser.id).delete()
-                                    .addOnSuccessListener {
-                                        Toast.makeText(this@MainActivity, "Akun berhasil dihapus dari Firestore.", Toast.LENGTH_SHORT).show()
-                                        navigateBack()
-                                    }
-                                    .addOnFailureListener {
-                                        Toast.makeText(this@MainActivity, "Gagal menghapus akun: ${it.message}", Toast.LENGTH_SHORT).show()
-                                    }
+                            onToggleActiveClick = {
+                                if (isSelfAccount) {
+                                    Toast.makeText(this@MainActivity, "Tidak dapat menonaktifkan akun sendiri.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val newActive = !selectedUser.isActive
+                                    firestore.collection("users").document(selectedUser.id)
+                                        .update("active", newActive)
+                                        .addOnSuccessListener {
+                                            selectedUser = selectedUser.copy(isActive = newActive)
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                if (newActive) "Akun berhasil diaktifkan." else "Akun berhasil dinonaktifkan.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                        .addOnFailureListener {
+                                            Toast.makeText(this@MainActivity, "Gagal memperbarui status akun: ${it.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                }
+                            },
+                            onDeleteClick = {
+                                if (isSelfAccount) {
+                                    Toast.makeText(this@MainActivity, "Tidak dapat menghapus akun sendiri.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    firestore.collection("users").document(selectedUser.id).delete()
+                                        .addOnSuccessListener {
+                                            Toast.makeText(this@MainActivity, "Akun berhasil dihapus dari Firestore.", Toast.LENGTH_SHORT).show()
+                                            navigateBack()
+                                        }
+                                        .addOnFailureListener {
+                                            Toast.makeText(this@MainActivity, "Gagal menghapus akun: ${it.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                }
                             }
                         )
                     }
@@ -456,6 +487,7 @@ class MainActivity : ComponentActivity() {
                         "photoUrl" to "",
                         "role" to "user",
                         "verified" to false,
+                        "active" to true,
                         "verificationRequested" to false,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
@@ -573,6 +605,17 @@ class MainActivity : ComponentActivity() {
 
                 if (document.exists()) {
 
+                    val isActive = document.getBoolean("active") ?: true
+                    if (!isActive) {
+                        auth.signOut()
+                        Toast.makeText(
+                            this,
+                            "Akun Anda nonaktif. Hubungi admin untuk informasi lebih lanjut.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@addOnSuccessListener
+                    }
+
                     val name = document.getString("name")
                         ?: user.displayName
                         ?: ""
@@ -636,6 +679,7 @@ class MainActivity : ComponentActivity() {
                         "photoUrl" to photoUrl,
                         "role" to "user",
                         "verified" to false,
+                        "active" to true,
                         "verificationRequested" to false,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
@@ -761,6 +805,17 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(
                         this,
                         "Data profile user tidak ditemukan.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@addOnSuccessListener
+                }
+
+                val isActive = document.getBoolean("active") ?: true
+                if (!isActive) {
+                    auth.signOut()
+                    Toast.makeText(
+                        this,
+                        "Akun Anda nonaktif. Hubungi admin untuk informasi lebih lanjut.",
                         Toast.LENGTH_LONG
                     ).show()
                     return@addOnSuccessListener

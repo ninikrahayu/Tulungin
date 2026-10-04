@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -16,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -85,6 +89,7 @@ fun KelolaKategori(
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -111,7 +116,10 @@ fun KelolaKategori(
                     text = "Kelola Kategori",
                     color = TulunginTextPrimary,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
 
@@ -131,18 +139,27 @@ fun KelolaKategori(
 
             when {
                 loading -> {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("Memuat data...", color = TulunginTextSecondary)
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Memuat data...", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                     }
                 }
                 errorMessage != null -> {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("Tidak dapat memuat data: $errorMessage", color = Color.Red)
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Tidak dapat memuat data: $errorMessage", color = Color.Red, textAlign = TextAlign.Center)
                     }
                 }
                 categoryList.isEmpty() -> {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("Belum ada data.", color = TulunginTextSecondary)
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Belum ada data.", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                     }
                 }
                 else -> {
@@ -174,8 +191,8 @@ fun KelolaKategori(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 24.dp)
-                    .height(52.dp),
+                    .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 16.dp)
+                    .heightIn(min = 50.dp),
                 shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = TulunginPrimary,
@@ -295,11 +312,14 @@ fun EditCategorySheetContent(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState()
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .verticalScroll(scrollState)
             .padding(horizontal = 24.dp, vertical = 6.dp)
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -309,7 +329,7 @@ fun EditCategorySheetContent(
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -337,13 +357,13 @@ fun EditCategorySheetContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = onSaveClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .heightIn(min = 50.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = TulunginPrimary,
@@ -360,9 +380,12 @@ fun EditCategorySheetContent(
         }
 
         if (showDeleteButton) {
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            TextButton(onClick = onDeleteClick) {
+            TextButton(
+                onClick = onDeleteClick,
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
                 Text(
                     text = "Hapus Kategori",
                     color = TulunginDeleteText,
@@ -372,7 +395,7 @@ fun EditCategorySheetContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -406,15 +429,19 @@ private fun CategoryCardItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Text(
             text = item.name,
             color = TulunginTextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),

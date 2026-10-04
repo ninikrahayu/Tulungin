@@ -15,6 +15,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -90,6 +92,8 @@ fun KelolaJob(
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
     ) {
         Row(
             modifier = Modifier
@@ -113,7 +117,10 @@ fun KelolaJob(
                 text = "Kelola Job",
                 color = TulunginTextPrimary,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
 
@@ -126,7 +133,7 @@ fun KelolaJob(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 4.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -156,29 +163,38 @@ fun KelolaJob(
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp)
         )
 
         when {
             loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Memuat data...", color = TulunginTextSecondary)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Memuat data...", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                 }
             }
             errorMessage != null -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Tidak dapat memuat data: $errorMessage", color = Color.Red)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Tidak dapat memuat data: $errorMessage", color = Color.Red, textAlign = TextAlign.Center)
                 }
             }
             filteredJobs.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Belum ada data.", color = TulunginTextSecondary)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Belum ada data.", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                 }
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(
@@ -219,28 +235,38 @@ private fun JobCardItem(
                 text = job.title,
                 color = TulunginTextPrimary,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = job.category,
                 color = TulunginTextSecondary,
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = "Peminta: ${job.requester}",
                 color = TulunginTextSecondary,
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = "Status: ${job.status}",
                 color = TulunginPrimary,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),

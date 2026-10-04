@@ -16,6 +16,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -28,8 +30,14 @@ data class UserItem(
     val phone: String,
     val email: String,
     val address: String,
-    val isVerified: Boolean
+    val isVerified: Boolean,
+    val isActive: Boolean = true
 )
+
+private fun String.toTitleCase(): String = trim()
+    .split(Regex("\\s+"))
+    .filter { it.isNotEmpty() }
+    .joinToString(" ") { word -> word.lowercase().replaceFirstChar { it.uppercaseChar() } }
 
 @Composable
 fun KelolaUser(
@@ -58,7 +66,8 @@ fun KelolaUser(
                         phone = doc.getString("phone") ?: "-",
                         email = doc.getString("email") ?: "",
                         address = doc.getString("address") ?: "",
-                        isVerified = doc.getBoolean("verified") ?: doc.getBoolean("isVerified") ?: true
+                        isVerified = doc.getBoolean("verified") ?: doc.getBoolean("isVerified") ?: true,
+                        isActive = doc.getBoolean("active") ?: true
                     )
                 }
             }
@@ -79,6 +88,8 @@ fun KelolaUser(
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
     ) {
         Row(
             modifier = Modifier
@@ -102,14 +113,17 @@ fun KelolaUser(
                 text = "Kelola User/Akun",
                 color = TulunginTextPrimary,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -144,24 +158,33 @@ fun KelolaUser(
 
         when {
             loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Memuat data...", color = TulunginTextSecondary)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Memuat data...", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                 }
             }
             errorMessage != null -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Tidak dapat memuat data: $errorMessage", color = Color.Red)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Tidak dapat memuat data: $errorMessage", color = Color.Red, textAlign = TextAlign.Center)
                 }
             }
             filteredUsers.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Belum ada data.", color = TulunginTextSecondary)
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Belum ada data.", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                 }
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 24.dp),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(
@@ -209,27 +232,38 @@ private fun UserCardItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = user.name,
+                text = user.name.toTitleCase(),
                 color = TulunginTextPrimary,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = user.phone,
                 color = TulunginTextSecondary,
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(6.dp))
 
-            StatusBadge(isVerified = user.isVerified)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusBadge(isVerified = user.isVerified)
+                if (!user.isActive) {
+                    InactiveBadge()
+                }
+            }
         }
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         Icon(
             painter = painterResource(id = R.drawable.ic_chevron_right),
@@ -263,7 +297,34 @@ private fun StatusBadge(isVerified: Boolean) {
             text = text,
             color = contentColor,
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun InactiveBadge() {
+    Row(
+        modifier = Modifier
+            .background(TulunginDangerContainer, RoundedCornerShape(10.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(TulunginDangerBorder, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = "Nonaktif",
+            color = TulunginDangerText,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

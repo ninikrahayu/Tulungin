@@ -35,8 +35,6 @@ val TulunginDangerContainer = Color(0xFFFFDAD6)
 val TulunginDangerText = Color(0xFF410002)
 val TulunginDangerBorder = Color(0xFFCF5F5F)
 val TulunginDeleteText = Color(0xFFE53E3E)
-val TulunginDeactivateBg = Color(0xFFF6E2E2)
-val TulunginDeactivateText = Color(0xFF64292A)
 
 
 val TulunginInactiveStep = Color(0xFFCBD5E1)

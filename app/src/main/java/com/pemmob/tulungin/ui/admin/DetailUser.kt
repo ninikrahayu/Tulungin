@@ -9,13 +9,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,18 +32,25 @@ fun DetailUser(
     phone: String = "",
     address: String = "",
     isVerified: Boolean = false,
+    isActive: Boolean = true,
+    isSelf: Boolean = false,
     onBackClick: () -> Unit = {},
-    onDeactivateClick: () -> Unit = {}
+    onToggleActiveClick: () -> Unit = {},
+    onDeleteClick: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+    var showToggleActiveConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp)
     ) {
         Row(
             modifier = Modifier
@@ -65,7 +74,10 @@ fun DetailUser(
                 text = "Detail User/Akun",
                 color = TulunginTextPrimary,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
 
@@ -95,7 +107,11 @@ fun DetailUser(
                 text = name.ifBlank { "Pengguna" },
                 color = TulunginTextPrimary,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -219,44 +235,190 @@ fun DetailUser(
                     )
                 }
             }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                thickness = 1.dp,
+                color = TulunginBorderGrey
+            )
+
+            Column {
+                Text(
+                    text = "Status Aktif",
+                    color = TulunginTextMuted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(
+                                if (isActive) TulunginSuccessDot else TulunginDangerBorder,
+                                CircleShape
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isActive) "Aktif" else "Nonaktif",
+                        color = if (isActive) TulunginSuccessContent else TulunginDangerText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        Button(
-            onClick = onDeactivateClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.2.dp, TulunginDangerBorder),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = TulunginDeactivateBg,
-                contentColor = TulunginDeactivateText
-            ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+        if (isSelf) {
+            Text(
+                text = "Tidak dapat menonaktifkan atau menghapus akunmu sendiri.",
+                color = TulunginTextSecondary,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            Button(
+                onClick = { showToggleActiveConfirm = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 50.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(
+                    1.2.dp,
+                    if (isActive) TulunginWarningDot else TulunginSuccessDot
+                ),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isActive) TulunginWarningContainer else TulunginSuccessContainer,
+                    contentColor = if (isActive) TulunginWarningContent else TulunginSuccessContent
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_block),
-                    contentDescription = null,
-                    tint = TulunginDeactivateText,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Hapus Akun",
-                    color = TulunginDeactivateText,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = if (isActive) R.drawable.ic_block else R.drawable.ic_person),
+                        contentDescription = null,
+                        tint = if (isActive) TulunginWarningContent else TulunginSuccessContent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isActive) "Nonaktifkan Akun" else "Aktifkan Akun",
+                        color = if (isActive) TulunginWarningContent else TulunginSuccessContent,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { showDeleteConfirm = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 50.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.2.dp, TulunginDangerBorder),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = TulunginDangerContainer,
+                    contentColor = TulunginDangerText
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_trash),
+                        contentDescription = null,
+                        tint = TulunginDangerText,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Hapus Akun",
+                        color = TulunginDangerText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+
+    if (showToggleActiveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showToggleActiveConfirm = false },
+            containerColor = Color.White,
+            title = {
+                Text(
+                    text = if (isActive) "Nonaktifkan akun ini?" else "Aktifkan akun ini?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = if (isActive) {
+                        "User tidak akan bisa login sampai akun ini diaktifkan kembali. Data akun tidak akan dihapus."
+                    } else {
+                        "User akan bisa login kembali setelah akun ini diaktifkan."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showToggleActiveConfirm = false
+                    onToggleActiveClick()
+                }) {
+                    Text(
+                        text = if (isActive) "Nonaktifkan" else "Aktifkan",
+                        color = TulunginPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showToggleActiveConfirm = false }) {
+                    Text("Batal", color = TulunginTextSecondary)
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            containerColor = Color.White,
+            title = { Text(text = "Hapus akun permanen?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(text = "Data akun ini akan dihapus secara permanen dari database dan tidak dapat dikembalikan.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    onDeleteClick()
+                }) {
+                    Text("Hapus", color = TulunginDangerText, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Batal", color = TulunginTextSecondary)
+                }
+            }
+        )
     }
 }
 
@@ -265,7 +427,7 @@ private fun InfoFieldItem(
     label: String,
     value: String
 ) {
-    Column {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
             color = TulunginTextMuted,
@@ -278,7 +440,8 @@ private fun InfoFieldItem(
             color = TulunginTextPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            lineHeight = 20.sp
+            lineHeight = 20.sp,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

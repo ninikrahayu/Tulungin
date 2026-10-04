@@ -23,6 +23,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
@@ -117,6 +119,8 @@ fun ChatScreen(
                 .fillMaxSize()
                 .background(Color.White)
                 .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
         ) {
             Row(
                 modifier = Modifier
@@ -140,7 +144,10 @@ fun ChatScreen(
                     text = "Chat",
                     color = TulunginTextPrimary,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
 
@@ -153,7 +160,7 @@ fun ChatScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 4.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)
             ) {
                 OutlinedTextField(
                     value = searchQuery,
@@ -183,29 +190,38 @@ fun ChatScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp)
             )
 
             when {
                 loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Memuat percakapan...", color = TulunginTextSecondary)
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Memuat percakapan...", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                     }
                 }
                 errorMessage != null -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Gagal memuat chat: $errorMessage", color = Color.Red)
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Gagal memuat chat: $errorMessage", color = Color.Red, textAlign = TextAlign.Center)
                     }
                 }
                 filteredConversations.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Belum ada percakapan.", color = TulunginTextSecondary)
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Belum ada percakapan.", color = TulunginTextSecondary, textAlign = TextAlign.Center)
                     }
                 }
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 24.dp),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         items(
@@ -254,7 +270,7 @@ private fun ConversationCardItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             modifier = Modifier.weight(1f)
@@ -268,8 +284,12 @@ private fun ConversationCardItem(
                     text = conversation.name,
                     color = TulunginTextPrimary,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = conversation.time,
                     color = TulunginTextSecondary,
@@ -283,7 +303,9 @@ private fun ConversationCardItem(
                 text = conversation.topic,
                 color = TulunginPrimary,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(3.dp))
@@ -292,7 +314,8 @@ private fun ConversationCardItem(
                 text = conversation.lastMessage,
                 color = TulunginTextSecondary,
                 fontSize = 13.sp,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -378,6 +401,8 @@ fun ChatDetailScreen(
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
     ) {
         Row(
             modifier = Modifier
@@ -401,7 +426,10 @@ fun ChatDetailScreen(
                 text = userName,
                 color = TulunginTextPrimary,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
 
@@ -415,18 +443,26 @@ fun ChatDetailScreen(
             text = "$userName · $topic",
             color = TulunginTextSecondary,
             fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 8.dp)
         )
 
         if (loading) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Memuat pesan...", color = TulunginTextSecondary)
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Memuat pesan...", color = TulunginTextSecondary, textAlign = TextAlign.Center)
             }
         } else if (messages.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Belum ada pesan.", color = TulunginTextSecondary)
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Belum ada pesan.", color = TulunginTextSecondary, textAlign = TextAlign.Center)
             }
         } else {
             LazyColumn(
@@ -449,31 +485,30 @@ fun ChatDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp)
-                .navigationBarsPadding()
-                .imePadding(),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
             BasicTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
-                singleLine = true,
+                maxLines = 4,
                 textStyle = TextStyle(
                     fontSize = 14.sp,
-                    color = TulunginTextPrimary
+                    color = TulunginTextPrimary,
+                    lineHeight = 20.sp
                 ),
                 cursorBrush = SolidColor(TulunginPrimary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { sendMessage() }),
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
+                    .heightIn(min = 48.dp, max = 110.dp)
                     .background(TulunginInputBg, RoundedCornerShape(12.dp))
                     .border(1.dp, TulunginInputBorder, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 decorationBox = { innerTextField ->
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         if (inputText.isEmpty()) {
@@ -493,14 +528,14 @@ fun ChatDetailScreen(
             Button(
                 onClick = { sendMessage() },
                 modifier = Modifier
-                    .height(48.dp)
-                    .width(74.dp),
+                    .heightIn(min = 48.dp)
+                    .widthIn(min = 72.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = TulunginPrimary,
                     contentColor = Color.White
                 ),
-                contentPadding = PaddingValues(0.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
@@ -528,7 +563,8 @@ private fun ChatBubbleItem(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 280.dp)
+                .fillMaxWidth(0.82f)
+                .wrapContentWidth(if (isFromAdmin) Alignment.End else Alignment.Start)
                 .clip(RoundedCornerShape(16.dp))
                 .background(bubbleBg)
                 .padding(horizontal = 14.dp, vertical = 10.dp)

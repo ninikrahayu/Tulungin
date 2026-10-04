@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,8 +46,10 @@ fun DetailJob(
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp)
     ) {
         Row(
             modifier = Modifier
@@ -70,7 +73,10 @@ fun DetailJob(
                 text = "Detail Job",
                 color = TulunginTextPrimary,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
 
@@ -121,7 +127,8 @@ fun DetailJob(
                 text = needDetail.ifBlank { "Tidak ada detail." },
                 color = TulunginPrimary,
                 fontSize = 13.sp,
-                lineHeight = 18.sp
+                lineHeight = 19.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
 
@@ -183,7 +190,7 @@ fun DetailJob(
             onClick = onDeactivateClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .heightIn(min = 50.dp),
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.2.dp, TulunginDangerBorder),
             colors = ButtonDefaults.buttonColors(
@@ -241,7 +248,9 @@ private fun JobInfoCard(
             text = value,
             color = TulunginTextPrimary,
             fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            lineHeight = 20.sp,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -255,12 +264,16 @@ private fun DetailTimelineItem(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.Top
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(16.dp)
+            modifier = Modifier
+                .width(16.dp)
+                .fillMaxHeight()
         ) {
             if (isCompleted || isCurrent) {
                 Box(
@@ -282,7 +295,8 @@ private fun DetailTimelineItem(
                 Box(
                     modifier = Modifier
                         .width(2.dp)
-                        .height(34.dp)
+                        .defaultMinSize(minHeight = 28.dp)
+                        .weight(1f)
                         .background(lineColor)
                 )
             }
@@ -295,7 +309,10 @@ private fun DetailTimelineItem(
             color = if (isCompleted || isCurrent) TulunginTextPrimary else TulunginTextSecondary,
             fontSize = 14.sp,
             fontWeight = if (isCurrent) FontWeight.Bold else if (isCompleted) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.offset(y = (-3).dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(bottom = if (isLast) 0.dp else 16.dp)
+                .offset(y = (-2).dp)
         )
     }
 }

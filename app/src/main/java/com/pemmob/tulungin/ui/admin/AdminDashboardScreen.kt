@@ -8,8 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,33 +18,30 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.R
-import com.pemmob.tulungin.ui.theme.TulunginInputBorderFocused
-import com.pemmob.tulungin.ui.theme.TulunginMintBorder
-import com.pemmob.tulungin.ui.theme.TulunginMintLight
-import com.pemmob.tulungin.ui.theme.TulunginMintSoft
-import com.pemmob.tulungin.ui.theme.TulunginPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTextMuted
-import com.pemmob.tulungin.ui.theme.TulunginTextPrimary
-import com.pemmob.tulungin.ui.theme.TulunginTheme
+import com.pemmob.tulungin.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(
     modifier: Modifier = Modifier,
     onManageUsersClick: () -> Unit = {},
     onManageCategoriesClick: () -> Unit = {},
     onManageJobsClick: () -> Unit = {},
-    onChatClick: () -> Unit = {}
+    onChatClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     var totalUsers by remember { mutableStateOf("...") }
     var totalJobs by remember { mutableStateOf("...") }
     var totalCategories by remember { mutableStateOf("...") }
     var activeJobs by remember { mutableStateOf("...") }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val db = FirebaseFirestore.getInstance()
@@ -72,8 +68,10 @@ fun AdminDashboardScreen(
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp)
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -87,6 +85,26 @@ fun AdminDashboardScreen(
                 modifier = Modifier.height(28.dp),
                 contentScale = ContentScale.Fit
             )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            TooltipBox(
+                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                tooltip = { PlainTooltip { Text("Logout") } },
+                state = rememberTooltipState()
+            ) {
+                IconButton(
+                    onClick = { showLogoutConfirm = true },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_logout),
+                        contentDescription = "Logout",
+                        tint = TulunginTextPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -181,6 +199,28 @@ fun AdminDashboardScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
     }
+
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            containerColor = Color.White,
+            title = { Text("Konfirmasi Logout", fontWeight = FontWeight.Bold) },
+            text = { Text("Apakah Anda yakin ingin keluar dari akun admin?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutConfirm = false
+                    onLogoutClick()
+                }) {
+                    Text("Logout", color = TulunginDangerText, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirm = false }) {
+                    Text("Batal", color = TulunginTextSecondary)
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -205,8 +245,12 @@ private fun StatCard(
                 text = title,
                 color = TulunginTextMuted,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
+            Spacer(modifier = Modifier.width(6.dp))
             Box(
                 modifier = Modifier
                     .size(30.dp)
@@ -226,7 +270,9 @@ private fun StatCard(
             text = value,
             color = TulunginPrimary,
             fontSize = 22.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -240,12 +286,13 @@ private fun MenuCard(
 ) {
     Column(
         modifier = modifier
-            .height(130.dp)
+            .defaultMinSize(minHeight = 120.dp)
+            .heightIn(min = 120.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
             .border(1.5.dp, TulunginMintBorder, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = 10.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -262,13 +309,16 @@ private fun MenuCard(
                 modifier = Modifier.size(22.dp)
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = title,
             color = TulunginTextPrimary,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
