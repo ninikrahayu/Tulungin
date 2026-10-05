@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import com.google.firebase.FirebaseApp
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -164,7 +165,12 @@ class FirestoreUserRepository(context: Context) : UserRepository {
                             applicantId = document.getString("applicantId") ?: "",
                             applicantName = document.getString("applicantName") ?: "",
                             status = document.getString("status") ?: "pending",
-                            createdAt = document.getLong("createdAt") ?: System.currentTimeMillis()
+                            createdAt = when (val c = document.get("createdAt")) {
+                                is Number -> c.toLong()
+                                is Timestamp -> c.toDate().time
+                                is String -> c.toLongOrNull() ?: System.currentTimeMillis()
+                                else -> System.currentTimeMillis()
+                            }
                         )
                     } catch (e: Exception) {
                         null
@@ -280,7 +286,12 @@ class FirestoreUserRepository(context: Context) : UserRepository {
         require(job.requesterId != userId) { "Peminta tidak dapat melamar job sendiri." }
         require(job.status == JobStatus.AVAILABLE && job.helperId == null) { "Job sudah tidak tersedia atau sudah memiliki helper." }
 
-        require(current.applications.none { it.jobId == jobId && it.applicantId == userId && it.status in listOf("pending", "accepted") }) {
+        val existingInFirestore = firestore.collection("applications")
+            .whereEqualTo("jobId", jobId)
+            .whereEqualTo("applicantId", userId)
+            .get().await()
+
+        require(existingInFirestore.isEmpty && current.applications.none { it.jobId == jobId && it.applicantId == userId }) {
             "Kamu sudah mengirim lamaran untuk job ini."
         }
 
