@@ -1,8 +1,10 @@
 <div align="center">
-  <img src="docs/logo.png" alt="Tulungin Logo" width="180">
+  <img src="docs/logo.png" alt="Tulungin Logo" width="120">
+  <br>
+  <img src="docs/logo-text.png" alt="Tulungin Text Logo" width="170">
 </div>
 
-# Tulungin
+# Aplikasi Mobile Tulungin
 
 > **Aplikasi marketplace jasa tolong-menolong & micro-tasking komunitas berbasis Android.**
 
@@ -17,15 +19,15 @@
 
 | 1. Beranda | 2. Job Available | 3. Detail Job |
 | :---: | :---: | :---: |
-| ![Beranda](docs/preview/01-beranda.png) | ![Job Available](docs/preview/02-job-available.png) | ![Detail Job](docs/preview/04-detail-job.png) |
+| <img src="docs/preview/01-beranda.png" width="220"> | <img src="docs/preview/02-job-available.png" width="220"> | <img src="docs/preview/04-detail-job.png" width="220"> |
 
 | 4. Job Aktif & Bukti | 5. Konfirmasi Selesai | 6. Rating & Ulasan |
 | :---: | :---: | :---: |
-| ![Job Aktif](docs/preview/05-job-aktif.png) | ![Konfirmasi](docs/preview/06-konfirmasi.png) | ![Ulasan](docs/preview/07-ulasan.png) |
+| <img src="docs/preview/05-job-aktif.png" width="220"> | <img src="docs/preview/06-konfirmasi.png" width="220"> | <img src="docs/preview/07-ulasan.png" width="220"> |
 
 | 7. Bukti Pembayaran | 8. Chat Real-Time | 9. Profil Pengguna |
 | :---: | :---: | :---: |
-| ![Pembayaran](docs/preview/08-pembayaran.png) | ![Chat](docs/preview/10-chat.png) | ![Profil](docs/preview/09-profil.png) |
+| <img src="docs/preview/08-pembayaran.png" width="220"> | <img src="docs/preview/10-chat.png" width="220"> | <img src="docs/preview/09-profil.png" width="220"> |
 
 ---
 
@@ -137,8 +139,6 @@ Tulungin/
 ```
 
 ---
-
-## 👥 Tim Pengembang
 
 ## 👥 Tim Pengembang
 
