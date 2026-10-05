@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "523578674789-c066fbr0ngeerrf9ijrofpepj7m27ds4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pemmob.tulungin",
+            "certificate_hash": "32bb524a5320bdbead862478263f8d6aafa78a7c"
+          }
+        },
+        {
           "client_id": "523578674789-hu8cvrqkdb6pjt5r3rm4sa5qsstmb0qc.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.pemmob.tulungin",
             "certificate_hash": "3645df24c72ee5f944dbbd7eaf95112c6696c664"
+          }
+        },
+        {
+          "client_id": "523578674789-mgk7uchnva1tlh5v52ptok1ga5fepthi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pemmob.tulungin",
+            "certificate_hash": "b76f3aa62be64d3d4267730e5af243f776426be0"
           }
         },
         {
