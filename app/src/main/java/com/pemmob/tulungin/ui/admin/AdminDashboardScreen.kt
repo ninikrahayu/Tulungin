@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pemmob.tulungin.R
 import com.pemmob.tulungin.ui.theme.*
+import com.pemmob.tulungin.ui.user.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -201,24 +202,12 @@ fun AdminDashboardScreen(
     }
 
     if (showLogoutConfirm) {
-        AlertDialog(
-            onDismissRequest = { showLogoutConfirm = false },
-            containerColor = Color.White,
-            title = { Text("Konfirmasi Logout", fontWeight = FontWeight.Bold) },
-            text = { Text("Apakah Anda yakin ingin keluar dari akun admin?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showLogoutConfirm = false
-                    onLogoutClick()
-                }) {
-                    Text("Logout", color = TulunginDangerText, fontWeight = FontWeight.SemiBold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) {
-                    Text("Batal", color = TulunginTextSecondary)
-                }
-            }
+        ConfirmDialog(
+            "Keluar dari akun?",
+            "Sesi Anda akan diakhiri.",
+            "Keluar",
+            { showLogoutConfirm = false },
+            { showLogoutConfirm = false; onLogoutClick() }
         )
     }
 }
