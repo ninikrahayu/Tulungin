@@ -107,7 +107,11 @@ internal fun JobDetailScreen(
         if (job.locationLat != null && job.locationLng != null) {
             MapLibreViewerView(job.locationLat, job.locationLng, helperLat, helperLng)
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(Modifier.weight(1f)) {
                     DetailCard("Lokasi", job.location)
                     if (distanceText != null) {
@@ -348,7 +352,6 @@ internal fun JobCompletionScreen(
         UText("Konfirmasi Penyelesaian", size = 18, weight = FontWeight.Bold, lineHeight = 24)
         StatusStrip(job.status.label)
 
-        // Helper Section: Work Proof
         UText("Bukti Pekerjaan (dari Penulung)", size = 16, weight = FontWeight.Bold)
         if (isHelper) {
             if (workUri.isBlank()) {
@@ -369,7 +372,6 @@ internal fun JobCompletionScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        // Requester Section: Payment Proof
         UText("Bukti Pembayaran (dari Peminta)", size = 16, weight = FontWeight.Bold)
         if (isRequester) {
             if (payUri.isBlank()) {
