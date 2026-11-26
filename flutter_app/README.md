@@ -11,9 +11,11 @@ flutter run
 
 ### Android
 
-`android/app/google-services.json` berasal dari konfigurasi Firebase Android yang sudah ada di project. Package ID tetap `com.pemmob.tulungin`; plugin Google Services dikonfigurasi untuk membuat resource Firebase Android saat Gradle build.
+Konfigurasi Firebase Android menggunakan file native `../app/google-services.json`, yang tersedia di lokasi yang dibaca Gradle Flutter: `android/app/google-services.json`. Kedua file harus tetap sama jika konfigurasi Android diperbarui. Package ID tetap `com.pemmob.tulungin`; plugin Google Services membaca file tersebut saat Gradle build.
 
 Aktifkan Email/Password dan Google pada Firebase Authentication. Untuk Google Sign-In, daftarkan SHA-1/SHA-256 signing key Android pada Firebase Console. Jangan menaruh service-account key atau rahasia server di aplikasi.
+
+Konfigurasi Android yang ada tidak menyediakan Firebase app ID dan client config untuk Web/iOS. Nilai-nilai tersebut tidak ditemukan di proyek Kotlin maupun file `google-services.json`; buat Web App/iOS App di Firebase Console untuk mendapatkan konfigurasi platformnya.
 
 ### Web
 
@@ -47,7 +49,7 @@ iOS build memerlukan macOS dan Xcode. Untuk Google Sign-In, tambahkan URL scheme
 
 ### Cloudinary
 
-Unggahan foto profil dan bukti menggunakan unsigned Cloudinary upload preset. Isi nama cloud dan preset saat menjalankan atau build:
+Unggahan foto profil dan bukti menggunakan unsigned Cloudinary upload preset. Flutter memakai cloud name `ahvdebyq` dan preset `tulungin_preset` yang digunakan langsung oleh alur unggah pada aplikasi Kotlin. Tidak perlu API key/API secret untuk unggahan unsigned. Nilai dapat dioverride saat menjalankan atau build:
 
 ```powershell
 flutter run `
@@ -55,7 +57,7 @@ flutter run `
   --dart-define=CLOUDINARY_UPLOAD_PRESET=your-unsigned-preset
 ```
 
-Nilai tersebut bukan API secret. Buat preset dengan pembatasan format dan ukuran di Cloudinary Console; jangan gunakan signed upload secret di aplikasi klien. Tanpa konfigurasi, unggahan berhenti dengan pesan yang menjelaskan konfigurasi yang dibutuhkan.
+Jangan gunakan signed upload secret di aplikasi klien. Perhatian: inisialisasi `MediaManager` pada `MainActivity.kt` memakai cloud name berbeda (`tulungin-cloud`) dan API key placeholder; karena tidak cocok dengan konfigurasi unggah langsung di Kotlin, Flutter tidak menggunakannya.
 
 ## Pemeriksaan
 

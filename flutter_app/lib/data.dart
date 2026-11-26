@@ -522,12 +522,18 @@ class TulunginData {
   }
 
   static Future<String> uploadImage(Uint8List bytes, String filename) async {
-    const cloudName = String.fromEnvironment('CLOUDINARY_CLOUD_NAME');
-    const uploadPreset = String.fromEnvironment('CLOUDINARY_UPLOAD_PRESET');
+    const cloudName = String.fromEnvironment(
+      'CLOUDINARY_CLOUD_NAME',
+      defaultValue: 'ahvdebyq',
+    );
+    const uploadPreset = String.fromEnvironment(
+      'CLOUDINARY_UPLOAD_PRESET',
+      defaultValue: 'tulungin_preset',
+    );
     if (cloudName.isEmpty || uploadPreset.isEmpty) {
       throw Exception(
-        'Unggahan belum dikonfigurasi. Isi CLOUDINARY_CLOUD_NAME dan '
-        'CLOUDINARY_UPLOAD_PRESET sesuai preset unsigned Cloudinary.',
+        'Unggahan Cloudinary belum dikonfigurasi. Isi CLOUDINARY_CLOUD_NAME '
+        'dan CLOUDINARY_UPLOAD_PRESET.',
       );
     }
     final request =
