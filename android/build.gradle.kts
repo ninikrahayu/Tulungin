@@ -1,0 +1,38 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+val newBuildDir: Directory =
+    rootProject.layout.buildDirectory
+        .dir("../../build")
+        .get()
+rootProject.layout.buildDirectory.value(newBuildDir)
+
+subprojects {
+    val rootPath = rootProject.projectDir.absolutePath
+    val projectPath = project.projectDir.absolutePath
+    if (rootPath.substringBefore(":") == projectPath.substringBefore(":")) {
+        val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+        project.layout.buildDirectory.value(newSubprojectBuildDir)
+    }
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+subprojects {
+    tasks.withType<KotlinCompile>().configureEach {
+        kotlinOptions {
+            freeCompilerArgs += listOf("-Xskip-metadata-version-check")
+        }
+    }
+}
+
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
+}
