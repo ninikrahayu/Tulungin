@@ -27,7 +27,7 @@ class FirebaseSetup {
         _senderId.isEmpty) {
       throw StateError(
         'Firebase belum dikonfigurasi untuk ${isWeb ? 'Web' : 'iOS'}. '
-        'Ikuti langkah konfigurasi di flutter_app/README.md.',
+        'Ikuti langkah konfigurasi di README.md.',
       );
     }
 

@@ -45,11 +45,9 @@ Desain dibaca langsung dari Figma dan dibandingkan dengan seluruh 20 lampiran. T
 5. Tombol simulasi lawan transaksi tersedia pada status tertentu agar kedua sisi transaksi dapat diuji pada satu perangkat.
 6. Status kosong, validasi formulir, pesan kesalahan, dan konfirmasi transaksi ditambahkan karena tidak semuanya digambar pada Figma.
 
-Tambahan ini disengaja agar seluruh halaman dapat dicoba. Kemiripan 100% belum boleh dianggap terbukti hanya dari kode atau pembacaan Figma. Pengujian visual pada perangkat dengan ukuran acuan tetap diperlukan; hasil dan keterbatasan pemeriksaan dicatat dalam HASIL-VERIFIKASI.md.
+Tambahan ini disengaja agar seluruh halaman dapat dicoba. Kemiripan 100% belum boleh dianggap terbukti hanya dari kode atau pembacaan Figma. Pengujian visual pada perangkat dengan ukuran acuan tetap diperlukan.
 
 ## Sumber teknis
 
-- AGP 9.3: https://developer.android.com/build/releases/agp-9-3-0-release-notes
-- Android Studio: https://developer.android.com/studio/releases
-- AndroidSVG: https://bigbadaboom.github.io/androidsvg/
-- Inter: https://github.com/google/fonts/tree/main/ofl/inter — lisensi font terdapat di `app/src/main/assets/INTER-LICENSE.txt`.
+- Flutter: https://docs.flutter.dev/
+- Inter: https://github.com/google/fonts/tree/main/ofl/inter — lisensi font tersedia di `assets/fonts/INTER-LICENSE.txt`.

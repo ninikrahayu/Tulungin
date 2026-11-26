@@ -87,7 +87,7 @@ class FirebaseSetupError extends StatelessWidget {
                 Text(error, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 const Text(
-                  'Lihat flutter_app/README.md untuk konfigurasi Android, iOS, dan Web.',
+                  'Lihat README.md untuk konfigurasi Android, iOS, dan Web.',
                   textAlign: TextAlign.center,
                 ),
               ],
